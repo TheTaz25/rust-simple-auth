@@ -44,9 +44,9 @@ impl User {
 
     fn set_password(&mut self, password: String) {
         let hash_result = bcrypt::hash(password, 10);
-        match hash_result.ok().as_ref() {
-            Some(result) => self.password = Some(result.clone()),
-            None => panic!("Couldn't hash password!")
+        match hash_result {
+            Ok(result) => self.password = Some(result),
+            Err(e) => panic!("Couldn't hash password!\n{}", e)
         }
     }
 }
