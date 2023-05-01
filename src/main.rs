@@ -8,6 +8,7 @@ use axum::{
 };
 use serde::{Serialize};
 use std::{sync::{Mutex, Arc}};
+use dotenv::dotenv;
 
 #[derive(Clone)]
 struct AppState {
@@ -51,8 +52,11 @@ async fn add_to_state (
     (StatusCode::OK, ("Added ".to_string() + &value.to_string() + &" to count!".to_string()))
 }
 
-fn get_default_user () -> Vec<User> {
-    vec![User::new("denis".to_string(), "asdf1234".to_string())]
+fn get_default_admin_user () -> Vec<User> {
+    let first_admin_user = std::env::var("ADMIN_USER").expect("ADMIN_USER needs to be set!");
+    let first_admin_pass = std::env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD needs to be set!");
+
+    vec![User::new(first_admin_user, first_admin_pass)]
 }
 
 async fn get_all_users (
@@ -67,9 +71,11 @@ async fn get_all_users (
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+
     let state = AppState {
         current_count: Arc::new(Mutex::new(0)),
-        user_list: Arc::new(Mutex::new(get_default_user()))
+        user_list: Arc::new(Mutex::new(get_default_admin_user()))
     };
 
     let app = Router::new()
