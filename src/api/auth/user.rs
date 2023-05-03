@@ -1,10 +1,10 @@
 use axum::{
   Router,
   extract::{State,Json,Path},
-  routing::get,
+  routing::{get,post},
   http::StatusCode
 };
-use serde::Serialize;
+use serde::{Serialize,Deserialize};
 
 use crate::state::AppState;
 
@@ -67,6 +67,10 @@ impl UserList {
   pub fn find(&self, name: &str) -> Option<User> {
     self.list.clone().into_iter().find(|user| user.username == name)
   }
+
+  pub fn exists(&self, name: &str) -> bool {
+    self.list.iter().any(|u| u.username == name)
+  }
 }
 
 #[derive(Serialize)]
@@ -77,6 +81,12 @@ struct UserListResponse {
 #[derive(Serialize)]
 struct UserResponse {
   user: User
+}
+
+#[derive(Deserialize)]
+struct NewUserBody {
+  username: String,
+  password: String,
 }
 
 async fn get_all_users(
@@ -101,8 +111,26 @@ async fn find_user(
   }
 }
 
+async fn add_user(
+  State(state): State<AppState>,
+  Json(new_user): Json<NewUserBody>,
+) -> Result<StatusCode, StatusCode> {
+  let mut user_list = state.user_list.lock().unwrap();
+
+  if user_list.exists(&new_user.username) {
+    return Err(StatusCode::CONFLICT)
+  }
+
+  user_list.add(
+    User::new(new_user.username, new_user.password, false)
+  );
+
+  Ok(StatusCode::CREATED)
+}
+
 pub fn router() -> Router<AppState> {
   Router::new()
     .route("/users", get(get_all_users))
     .route("/users/name/:name", get(find_user))
+    .route("/auth/register", post(add_user))
 }
