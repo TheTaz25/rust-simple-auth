@@ -64,7 +64,7 @@ impl UserList {
     self.list.push(user_to_add)
   }
 
-  pub fn find(&self, name: String) -> Option<User> {
+  pub fn find(&self, name: &str) -> Option<User> {
     self.list.clone().into_iter().find(|user| user.username == name)
   }
 }
@@ -92,12 +92,12 @@ async fn get_all_users(
 async fn find_user(
   State(state): State<AppState>,
   Path(name): Path<String>
-) -> Result<(StatusCode, Json<UserResponse>), StatusCode> {
+) -> Result<(StatusCode, Json<UserResponse>), (StatusCode, String)> {
   let user_list = state.user_list.lock().unwrap();
-  let found_user = user_list.find(name);
+  let found_user = user_list.find(&name);
   match found_user {
     Some(user) => Ok((StatusCode::OK, Json(UserResponse { user }))),
-    None => Err(StatusCode::NOT_FOUND)
+    None => Err((StatusCode::NOT_FOUND, format!("the user \"{name}\" does not exist!")))
   }
 }
 
