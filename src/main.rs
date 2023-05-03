@@ -5,56 +5,20 @@ use axum::{
     routing::get,
     http::StatusCode,
 };
-use serde::{Serialize};
-use std::{sync::{Mutex, Arc}};
+use serde::Serialize;
+use std::sync::{Mutex, Arc};
 use dotenv::dotenv;
+
+use back_end_paper_2::api::auth::user;
 
 #[derive(Clone)]
 struct AppState {
-    user_list: Arc<Mutex<Vec<User>>>,
-}
-
-#[derive(Clone, Serialize)]
-struct User {
-    username: String,
-    password: Option<String>,
+    user_list: Arc<Mutex<Vec<user::User>>>,
 }
 
 #[derive(Serialize)]
 struct UserListResponse {
-    users: Vec<User>
-}
-
-impl User {
-    // fn new_existing(username: String, password: String) -> Self {
-    //     User {
-    //         username,
-    //         password: Some(password),
-    //     }
-    // }
-
-    fn new(username: String) -> Self {
-        User {
-            username,
-            password: None
-        }
-    }
-
-    fn set_password(&mut self, password: String) {
-        let hash_result = bcrypt::hash(password, 10);
-        match hash_result.ok().as_ref() {
-            Some(result) => self.password = Some(result.clone()),
-            None => panic!("Couldn't hash password!")
-        }
-    }
-}
-
-fn get_default_admin_user () -> Vec<User> {
-    let first_admin_user = std::env::var("ADMIN_USER").expect("ADMIN_USER needs to be set!");
-    let first_admin_pass = std::env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD needs to be set!");
-    let mut new_user = User::new(first_admin_user);
-    new_user.set_password(first_admin_pass);
-    vec![new_user]
+    users: Vec<user::User>
 }
 
 // async fn add_user (
@@ -79,7 +43,7 @@ async fn main() {
     dotenv().ok();
 
     let state = AppState {
-        user_list: Arc::new(Mutex::new(get_default_admin_user()))
+        user_list: Arc::new(Mutex::new(vec![user::get_default_admin_user()]))
     };
 
     let app = Router::new()
