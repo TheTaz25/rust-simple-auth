@@ -1,4 +1,12 @@
+use axum::{
+  Router,
+  extract::{State,Json},
+  routing::get,
+  http::StatusCode
+};
 use serde::Serialize;
+
+use crate::state::AppState;
 
 #[derive(Clone, Serialize)]
 pub struct User {
@@ -55,4 +63,24 @@ impl UserList {
   pub fn add(&mut self, user_to_add: User) {
     self.list.push(user_to_add)
   }
+}
+
+#[derive(Serialize)]
+struct UserListResponse {
+  users: Vec<User>
+}
+
+async fn get_all_users(
+  State(state): State<AppState>
+) -> (StatusCode, Json<UserListResponse>) {
+  let user_list = state.user_list.lock().unwrap();
+  let response = UserListResponse {
+    users: user_list.get_all()
+  };
+  (StatusCode::OK, Json(response))
+}
+
+pub fn router() -> Router<AppState> {
+  Router::new()
+    .route("/users", get(get_all_users))
 }
