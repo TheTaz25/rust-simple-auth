@@ -13,7 +13,7 @@ use back_end_paper_2::api::auth::user;
 
 #[derive(Clone)]
 struct AppState {
-    user_list: Arc<Mutex<Vec<user::User>>>,
+    user_list: Arc<Mutex<user::UserList>>,
 }
 
 #[derive(Serialize)]
@@ -33,7 +33,7 @@ async fn get_all_users (
 ) -> (StatusCode, Json<UserListResponse>) {
     let users = state.user_list.lock().unwrap();
     let response = UserListResponse {
-        users: users.to_vec()
+        users: users.get_all()
     };
     (StatusCode::OK, Json(response))
 }
@@ -42,8 +42,11 @@ async fn get_all_users (
 async fn main() {
     dotenv().ok();
 
+    let mut new_user_list = user::UserList::new();
+    new_user_list.add(user::get_default_admin_user());
+
     let state = AppState {
-        user_list: Arc::new(Mutex::new(vec![user::get_default_admin_user()]))
+        user_list: Arc::new(Mutex::new(new_user_list))
     };
 
     let app = Router::new()

@@ -37,3 +37,22 @@ impl User {
     }
   }
 }
+
+#[derive(Clone)]
+pub struct UserList {
+  list: Vec<User>
+}
+
+impl UserList {
+  pub fn new() -> Self {
+    UserList { list: vec![] }
+  }
+
+  pub fn get_all(&self) -> Vec<User> {
+    self.list.to_vec()
+  }
+
+  pub fn add(&mut self, user_to_add: User) {
+    self.list.push(user_to_add)
+  }
+}
