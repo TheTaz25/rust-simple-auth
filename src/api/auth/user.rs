@@ -1,6 +1,6 @@
 use axum::{
   Router,
-  extract::{State,Json},
+  extract::{State,Json,Path},
   routing::get,
   http::StatusCode
 };
@@ -63,11 +63,20 @@ impl UserList {
   pub fn add(&mut self, user_to_add: User) {
     self.list.push(user_to_add)
   }
+
+  pub fn find(&self, name: String) -> Option<User> {
+    self.list.clone().into_iter().find(|user| user.username == name)
+  }
 }
 
 #[derive(Serialize)]
 struct UserListResponse {
   users: Vec<User>
+}
+
+#[derive(Serialize)]
+struct UserResponse {
+  user: User
 }
 
 async fn get_all_users(
@@ -80,7 +89,20 @@ async fn get_all_users(
   (StatusCode::OK, Json(response))
 }
 
+async fn find_user(
+  State(state): State<AppState>,
+  Path(name): Path<String>
+) -> Result<(StatusCode, Json<UserResponse>), StatusCode> {
+  let user_list = state.user_list.lock().unwrap();
+  let found_user = user_list.find(name);
+  match found_user {
+    Some(user) => Ok((StatusCode::OK, Json(UserResponse { user }))),
+    None => Err(StatusCode::NOT_FOUND)
+  }
+}
+
 pub fn router() -> Router<AppState> {
   Router::new()
     .route("/users", get(get_all_users))
+    .route("/users/name/:name", get(find_user))
 }
