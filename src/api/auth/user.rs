@@ -44,6 +44,9 @@ impl User {
       admin,
     }
   }
+  fn verify_password(&self, password: String) -> Result<bool, bcrypt::BcryptError> {
+    bcrypt::verify(password, &self.password)
+  }
 }
 
 #[derive(Clone)]
@@ -128,9 +131,41 @@ async fn add_user(
   Ok(StatusCode::CREATED)
 }
 
+#[derive(Deserialize)]
+struct LoginBody {
+  username: String,
+  password: String,
+}
+
+async fn login_user(
+  State(state): State<AppState>,
+  Json(user_data): Json<LoginBody>
+) -> Result<StatusCode, StatusCode> {
+  let user_list = state.user_list.lock().unwrap();
+
+  let user = user_list.find(&user_data.username);
+  match user {
+    Some(user) => {
+      let verified = user.verify_password(user_data.password).ok();
+      match verified {
+        Some(v) => {
+          if v {
+            Ok(StatusCode::OK)
+          } else {
+            Err(StatusCode::FORBIDDEN)
+          }
+        }
+        None => Err(StatusCode::INTERNAL_SERVER_ERROR)
+      }
+    }
+    None => Err(StatusCode::NOT_FOUND)
+  }
+}
+
 pub fn router() -> Router<AppState> {
   Router::new()
     .route("/users", get(get_all_users))
     .route("/users/name/:name", get(find_user))
     .route("/auth/register", post(add_user))
+    .route("/auth/login", post(login_user))
 }
