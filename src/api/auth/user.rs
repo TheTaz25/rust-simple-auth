@@ -44,8 +44,13 @@ impl User {
       admin,
     }
   }
-  fn verify_password(&self, password: String) -> Result<bool, bcrypt::BcryptError> {
-    bcrypt::verify(password, &self.password)
+  fn verify_password(&self, password: String) -> Result<(), (StatusCode, String)> {
+    let success = bcrypt::verify(password, &self.password).is_ok();
+    if success {
+      Ok(())
+    } else {
+      Err((StatusCode::FORBIDDEN, String::from("wrong password")))
+    }
   }
 }
 
@@ -67,8 +72,8 @@ impl UserList {
     self.list.push(user_to_add)
   }
 
-  pub fn find(&self, name: &str) -> Result<User, (StatusCode, String)> {
-    self.list.clone().into_iter().find(|user| user.username == name).ok_or((StatusCode::NOT_FOUND, String::from("User unknown")))
+  pub fn find(&self, name: &str) -> Result<&User, (StatusCode, String)> {
+    self.list.iter().find(|user| user.username == name).ok_or((StatusCode::NOT_FOUND, String::from("User unknown")))
   }
 
   pub fn exists(&self, name: &str) -> bool {
@@ -108,7 +113,7 @@ async fn find_user(
 ) -> Result<(StatusCode, Json<UserResponse>), (StatusCode, String)> {
   let user_list = state.user_list.lock().unwrap();
   let found_user = user_list.find(&name)?;
-  Ok((StatusCode::OK, Json(UserResponse { user: found_user })))
+  Ok((StatusCode::OK, Json(UserResponse { user: found_user.clone() })))
 }
 
 async fn add_user(
@@ -141,17 +146,8 @@ async fn login_user(
   let user_list = state.user_list.lock().unwrap();
 
   let user = user_list.find(&user_data.username)?;
-  let verified = user.verify_password(user_data.password).ok();
-  match verified {
-    Some(v) => {
-      if v {
-        Ok(StatusCode::OK)
-      } else {
-        Err((StatusCode::FORBIDDEN, String::from("Password not correct")))
-      }
-    }
-    None => Err((StatusCode::INTERNAL_SERVER_ERROR, String::from("Failed verification process")))
-  }
+  user.verify_password(user_data.password)?;
+  Ok(StatusCode::OK)
 }
 
 pub fn router() -> Router<AppState> {
