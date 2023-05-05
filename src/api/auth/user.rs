@@ -67,8 +67,8 @@ impl UserList {
     self.list.push(user_to_add)
   }
 
-  pub fn find(&self, name: &str) -> Option<User> {
-    self.list.clone().into_iter().find(|user| user.username == name)
+  pub fn find(&self, name: &str) -> Result<User, (StatusCode, String)> {
+    self.list.clone().into_iter().find(|user| user.username == name).ok_or((StatusCode::NOT_FOUND, String::from("User unknown")))
   }
 
   pub fn exists(&self, name: &str) -> bool {
@@ -107,11 +107,8 @@ async fn find_user(
   Path(name): Path<String>
 ) -> Result<(StatusCode, Json<UserResponse>), (StatusCode, String)> {
   let user_list = state.user_list.lock().unwrap();
-  let found_user = user_list.find(&name);
-  match found_user {
-    Some(user) => Ok((StatusCode::OK, Json(UserResponse { user }))),
-    None => Err((StatusCode::NOT_FOUND, format!("the user \"{name}\" does not exist!")))
-  }
+  let found_user = user_list.find(&name)?;
+  Ok((StatusCode::OK, Json(UserResponse { user: found_user })))
 }
 
 async fn add_user(
@@ -140,25 +137,20 @@ struct LoginBody {
 async fn login_user(
   State(state): State<AppState>,
   Json(user_data): Json<LoginBody>
-) -> Result<StatusCode, StatusCode> {
+) -> Result<StatusCode, (StatusCode, String)> {
   let user_list = state.user_list.lock().unwrap();
 
-  let user = user_list.find(&user_data.username);
-  match user {
-    Some(user) => {
-      let verified = user.verify_password(user_data.password).ok();
-      match verified {
-        Some(v) => {
-          if v {
-            Ok(StatusCode::OK)
-          } else {
-            Err(StatusCode::FORBIDDEN)
-          }
-        }
-        None => Err(StatusCode::INTERNAL_SERVER_ERROR)
+  let user = user_list.find(&user_data.username)?;
+  let verified = user.verify_password(user_data.password).ok();
+  match verified {
+    Some(v) => {
+      if v {
+        Ok(StatusCode::OK)
+      } else {
+        Err((StatusCode::FORBIDDEN, String::from("Password not correct")))
       }
     }
-    None => Err(StatusCode::NOT_FOUND)
+    None => Err((StatusCode::INTERNAL_SERVER_ERROR, String::from("Failed verification process")))
   }
 }
 
