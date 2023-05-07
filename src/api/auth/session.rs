@@ -1,5 +1,6 @@
 use std::ops::Add;
 
+use axum::http::StatusCode;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use chrono::{prelude::Local, Duration};
@@ -71,11 +72,12 @@ impl TokenList {
     self.list.retain(|t| t.refresh_token.expired())
   }
 
-  pub fn access_token_valid(&self, token_id: Uuid) -> bool {
+  pub fn access_token_valid(&self, token_id: Uuid) -> Result<(), StatusCode> {
     let found = self.list.iter().find(|t| t.access_token.r#match(token_id));
+
     match found {
-      Some(pair) => !pair.access_token.expired(),
-      None => false
+      Some(pair) => if !pair.access_token.expired() { Ok(()) } else { Err(StatusCode::FORBIDDEN) },
+      None => Err(StatusCode::FORBIDDEN)
     }
   }
 
