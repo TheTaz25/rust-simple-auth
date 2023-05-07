@@ -5,11 +5,14 @@ use axum::{
   http::StatusCode
 };
 use serde::{Serialize,Deserialize};
+use uuid::Uuid;
 
 use crate::state::AppState;
+use crate::api::auth::session::TokenPair;
 
 #[derive(Clone, Serialize)]
 pub struct User {
+  user_id: Uuid,
   username: String,
   password: String,
   admin: bool,
@@ -32,6 +35,7 @@ pub fn get_default_admin_user () -> User {
 impl User {
   pub fn new(username: String, clear_text_password: String, admin: bool) -> Self {
     User {
+      user_id: Uuid::new_v4(),
       username,
       password: hash_password(clear_text_password).expect("Was not able to generate a hashed password"),
       admin,
@@ -39,6 +43,7 @@ impl User {
   }
   pub fn from_existing(username: String, hashed_password: String, admin: bool) -> Self {
     User {
+      user_id: Uuid::new_v4(),
       username,
       password: hashed_password,
       admin,
@@ -139,15 +144,38 @@ struct LoginBody {
   password: String,
 }
 
+#[derive(Serialize)]
+struct LoginResponse {
+  tokens: TokenPair
+}
+
 async fn login_user(
   State(state): State<AppState>,
   Json(user_data): Json<LoginBody>
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<(StatusCode, Json<LoginResponse>), (StatusCode, String)> {
   let user_list = state.user_list.lock().unwrap();
+  let mut token_list = state.token_list.lock().unwrap();
 
   let user = user_list.find(&user_data.username)?;
   user.verify_password(user_data.password)?;
-  Ok(StatusCode::OK)
+
+  let token_pair = TokenPair::new(user.user_id);
+
+  token_list.add(token_pair);
+
+  Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
+}
+
+#[derive(Serialize)]
+struct AllTokensResponse {
+  tokens: Vec<TokenPair>
+}
+
+async fn get_all_tokens(
+  State(state): State<AppState>,
+) -> Result<(StatusCode, Json<AllTokensResponse>), StatusCode> {
+  let token_list = state.token_list.lock().unwrap();
+  Ok((StatusCode::OK, Json(AllTokensResponse { tokens: token_list.list.clone() })))
 }
 
 pub fn router() -> Router<AppState> {
@@ -156,4 +184,5 @@ pub fn router() -> Router<AppState> {
     .route("/users/name/:name", get(find_user))
     .route("/auth/register", post(add_user))
     .route("/auth/login", post(login_user))
+    .route("/auth/test", get(get_all_tokens))
 }
