@@ -72,13 +72,21 @@ impl TokenList {
     self.list.retain(|t| t.refresh_token.expired())
   }
 
-  pub fn access_token_valid(&self, token_id: Uuid) -> Result<(), StatusCode> {
+  fn access_token_valid(&self, token_id: Uuid) -> Result<(), StatusCode> {
     let found = self.list.iter().find(|t| t.access_token.r#match(token_id));
 
     match found {
       Some(pair) => if !pair.access_token.expired() { Ok(()) } else { Err(StatusCode::FORBIDDEN) },
       None => Err(StatusCode::FORBIDDEN)
     }
+  }
+
+  pub fn get_user_id_from_access_token(&self, access_token: Uuid) -> Result<Uuid, StatusCode> {
+    self.access_token_valid(access_token)?;
+
+    self.list.iter().find(|t| t.access_token.r#match(access_token))
+    .and_then(|p| Some(p.user))
+    .ok_or_else(|| StatusCode::FORBIDDEN)
   }
 
   pub fn refresh_token_valid(&self, token_id: Uuid) -> bool {

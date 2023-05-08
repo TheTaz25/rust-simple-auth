@@ -177,7 +177,8 @@ async fn test_user_authorized(
   Extension(auth_uuid): Extension<Uuid>,
 ) -> Result<StatusCode, StatusCode> {
   let token_list = state.token_list.lock().unwrap();
-  token_list.access_token_valid(auth_uuid)?;
+  let user_id = token_list.get_user_id_from_access_token(auth_uuid)?;
+  println!("{}", user_id.to_string());
   Ok(StatusCode::OK)
 }
 
