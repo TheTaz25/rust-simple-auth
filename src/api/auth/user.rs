@@ -182,6 +182,24 @@ async fn test_user_authorized(
   Ok(StatusCode::OK)
 }
 
+async fn refresh_user_token(
+  State(state): State<AppState>,
+  Path(refresh_token): Path<Uuid>,
+) -> Result<(StatusCode, Json<LoginResponse>), StatusCode> {
+  let mut token_list = state.token_list.lock().unwrap();
+
+  // Check if token is valid, extract user-id, invalidate old tokens
+  token_list.refresh_token_valid(refresh_token)?;
+  let user_id = token_list.get_user_id_from_refresh_token(refresh_token)?;
+  token_list.remove_by_refresh_token(refresh_token);
+
+  // generate new pair of tokens, save it
+  let token_pair = TokenPair::new(user_id);
+  token_list.add(token_pair);
+
+  Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
+}
+
 pub fn router() -> Router<AppState> {
   Router::new()
     .route("/users", get(get_all_users))
@@ -189,4 +207,5 @@ pub fn router() -> Router<AppState> {
     .route("/auth/register", post(add_user))
     .route("/auth/login", post(login_user))
     .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn(logged_in_guard)))
+    .route("/auth/refresh/:refresh_token", get(refresh_user_token))
 }

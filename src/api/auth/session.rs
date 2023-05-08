@@ -65,7 +65,7 @@ impl TokenList {
   }
 
   pub fn remove_by_refresh_token(&mut self, token_id: Uuid) {
-    self.list.retain(|t| t.refresh_token.r#match(token_id))
+    self.list.retain(|pair| !pair.refresh_token.r#match(token_id))
   }
 
   pub fn clear_all_invalid(&mut self) {
@@ -81,6 +81,18 @@ impl TokenList {
     }
   }
 
+  pub fn refresh_token_valid(&self, refresh_token: Uuid) -> Result<(), StatusCode> {
+    let is_expired = self.list.iter().find(|pair| pair.refresh_token.r#match(refresh_token))
+    .and_then(|pair| Some(pair.refresh_token.expired()))
+    .ok_or_else(|| StatusCode::FORBIDDEN)?;
+    
+    if is_expired {
+      Err(StatusCode::UNAUTHORIZED)
+    } else {
+      Ok(())
+    }
+  }
+
   pub fn get_user_id_from_access_token(&self, access_token: Uuid) -> Result<Uuid, StatusCode> {
     self.access_token_valid(access_token)?;
 
@@ -89,11 +101,9 @@ impl TokenList {
     .ok_or_else(|| StatusCode::FORBIDDEN)
   }
 
-  pub fn refresh_token_valid(&self, token_id: Uuid) -> bool {
-    let found = self.list.iter().find(|t| t.refresh_token.r#match(token_id));
-    match found {
-      Some(pair) => !pair.refresh_token.expired(),
-      None => false
-    }
+  pub fn get_user_id_from_refresh_token(&self, refresh_token: Uuid) -> Result<Uuid, StatusCode> {
+    self.list.iter().find(|pair| pair.refresh_token.r#match(refresh_token))
+    .and_then(|pair| Some(pair.user))
+    .ok_or_else(|| StatusCode::UNAUTHORIZED)
   }
 }
