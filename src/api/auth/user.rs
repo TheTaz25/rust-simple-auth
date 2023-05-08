@@ -1,13 +1,14 @@
 use axum::{
   Router,
-  extract::{State,Json,Path},
+  extract::{State,Json,Path,Extension},
   routing::{get,post},
-  http::{StatusCode, HeaderMap},
+  http::StatusCode,
+  middleware,
 };
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
 
-use crate::{state::AppState, utils::parser::get_authorization_as_uuid};
+use crate::{state::AppState, middleware::authorized::logged_in_guard};
 use crate::api::auth::session::TokenPair;
 
 #[derive(Clone, Serialize)]
@@ -172,12 +173,11 @@ struct AllTokensResponse {
 }
 
 async fn test_user_authorized(
-  headers: HeaderMap,
   State(state): State<AppState>,
+  Extension(auth_uuid): Extension<Uuid>,
 ) -> Result<StatusCode, StatusCode> {
-  let uuid = get_authorization_as_uuid(&headers).or(Err(StatusCode::EXPECTATION_FAILED))?;
   let token_list = state.token_list.lock().unwrap();
-  token_list.access_token_valid(uuid)?;
+  token_list.access_token_valid(auth_uuid)?;
   Ok(StatusCode::OK)
 }
 
@@ -187,5 +187,5 @@ pub fn router() -> Router<AppState> {
     .route("/users/name/:name", get(find_user))
     .route("/auth/register", post(add_user))
     .route("/auth/login", post(login_user))
-    .route("/auth/test", get(test_user_authorized))
+    .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn(logged_in_guard)))
 }
