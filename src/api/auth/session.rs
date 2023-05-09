@@ -6,6 +6,7 @@ use uuid::Uuid;
 use chrono::{prelude::Local, Duration};
 
 #[derive(Serialize, Deserialize, Copy, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Token {
   token: Uuid,
   expires_at: i64,
@@ -30,6 +31,7 @@ impl Token {
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct TokenPair {
   user: Uuid,
   access_token: Token,
