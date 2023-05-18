@@ -2,17 +2,16 @@ version: '3.9'
 
 services:
   db:
-    image: mariadb
+    image: postgres:alpine
     restart: always
     ports:
-      - "3306:3306"
+      - "5432:5432"
     environment:
-      MARIADB_ROOT_PASSWORD: asdf1234
-      MARIADB_DATABASE: pnp
-      MARIADB_USER: test
-      MARIADB_PASSWORD: asdf1234
+      POSTGRES_DB: pnp
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: asdf1234
     volumes:
-      - ./db/store:/var/lib/mysql
+      - ./db/store:/var/lib/postgresql/data
     networks:
       - pnp
 
