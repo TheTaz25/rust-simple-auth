@@ -19,11 +19,11 @@ pub struct User {
   admin: bool,
 }
 
-fn hash_password(password: String) -> Result<String, &'static str> {
+fn hash_password(password: String) -> Result<String, String> {
   let hash_result = bcrypt::hash(password, 10);
-  match hash_result.ok().as_ref() {
-    Some(result) => Ok(result.clone()),
-    None => Err("Could not generate hash from password")
+  match hash_result {
+    Ok(result) => Ok(result),
+    Err(_) => Err("Could not generate hash from password".to_string())
   }
 }
 

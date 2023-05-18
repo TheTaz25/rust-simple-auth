@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  db:
+    image: mariadb
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: asdf1234
+      MARIADB_DATABASE: pnp
+      MARIADB_USER: test
+      MARIADB_PASSWORD: asdf1234
+    volumes:
+      - ./db/store:/var/lib/mysql
+    networks:
+      - pnp
+
+  red:
+    image: redis:alpine
+    restart: always
+    command: redis-server --save 600 1 --loglevel warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis:/data
+    networks:
+      - pnp
+
+networks:
+  pnp:
