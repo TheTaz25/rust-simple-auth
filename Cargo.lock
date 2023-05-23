@@ -311,6 +311,7 @@ dependencies = [
  "byteorder",
  "diesel_derives",
  "itoa",
+ "uuid",
 ]
 
 [[package]]

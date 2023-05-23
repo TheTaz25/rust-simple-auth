@@ -1,5 +1,6 @@
 use std::sync::{Mutex, Arc};
-use diesel_async::pooled_connection::AsyncDieselConnectionManager;
+use back_end_paper_2::api::system_setup::init_admin_user::setup;
+use diesel_async::{pooled_connection::AsyncDieselConnectionManager};
 use dotenv::dotenv;
 
 use back_end_paper_2::api::auth::user::{self, router};
@@ -13,9 +14,16 @@ async fn main() {
     let db_url = build_db_from_env();
     let db_config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(db_url);
     let db_pool = bb8::Pool::builder().build(db_config).await.expect("Failed to setup a database pool");
+    let connection = db_pool.get().await.unwrap();
 
-    let mut new_user_list = user::UserList::new();
-    new_user_list.add(user::get_default_admin_user());
+    let adm_setup_result = setup(connection).await;
+
+    match adm_setup_result {
+        Ok(_) => println!("Fresh start. Initialized the provided adm-default user"),
+        Err(_) => println!("An admin user did already exist, skipped setup of adm user")
+    }
+
+    let new_user_list = user::UserList::new();
 
     let state = AppState {
         user_list: Arc::new(Mutex::new(new_user_list)),
