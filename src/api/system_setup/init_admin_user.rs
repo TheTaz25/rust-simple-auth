@@ -27,7 +27,7 @@ pub async fn setup(mut connection: Pool<'_>) -> Result<(), ()> {
   .await.or_else(|_| Err(()))?;
 
   match inserted {
-      0 => Err(()),
-      _ => Ok(())
+    0 => Err(()),
+    _ => Ok(())
   }
 }
