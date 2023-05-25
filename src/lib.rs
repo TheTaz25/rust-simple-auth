@@ -1,4 +1,4 @@
-use bb8::PooledConnection;
+use bb8::Pool;
 use diesel_async::{pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection};
 
 pub mod api;
@@ -13,4 +13,4 @@ pub mod schema;
 
 pub mod models;
 
-pub type Pool<'a> = PooledConnection<'a, AsyncDieselConnectionManager<AsyncPgConnection>>;
+pub type PgPool = Pool<AsyncDieselConnectionManager<AsyncPgConnection>>;

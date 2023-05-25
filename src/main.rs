@@ -14,9 +14,8 @@ async fn main() {
     let db_url = build_db_from_env();
     let db_config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(db_url);
     let db_pool = bb8::Pool::builder().build(db_config).await.expect("Failed to setup a database pool");
-    let connection = db_pool.get().await.unwrap();
 
-    let adm_setup_result = setup(connection).await;
+    let adm_setup_result = setup(&db_pool).await;
 
     match adm_setup_result {
         Ok(_) => println!("Fresh start. Initialized the provided adm-default user"),
@@ -28,9 +27,11 @@ async fn main() {
     let state = AppState {
         user_list: Arc::new(Mutex::new(new_user_list)),
         token_list: Arc::new(Mutex::new(TokenList::new())),
+        pool: Arc::new(db_pool)
     };
 
-    let routes = router().with_state(state);
+    let routes = router()
+        .with_state(state);
 
     // run it with hyper on localhost:3000
     axum::Server::bind(&"127.0.0.1:8080".parse().unwrap())
