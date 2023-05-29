@@ -11,6 +11,7 @@ use back_end_paper_2::api::auth::session::TokenList;
 async fn main() {
     dotenv().ok();
 
+    // BEGIN Database Setup
     let db_url = build_db_from_env();
     let db_config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(db_url);
     let db_pool = bb8::Pool::builder().build(db_config).await.expect("Failed to setup a database pool");
@@ -21,13 +22,19 @@ async fn main() {
         Ok(_) => println!("Fresh start. Initialized the provided adm-default user"),
         Err(_) => println!("An admin user did already exist, skipped setup of adm user")
     }
+    // END Database Setup
+    // BEGIN REDIS SETUP
+    let redis_client = redis::Client::open("redis://127.0.0.1").unwrap();
+    // END REDIS SETUP
+
 
     let state = AppState {
         token_list: Arc::new(Mutex::new(TokenList::new())),
-        pool: Arc::new(db_pool)
+        pool: Arc::new(db_pool),
+        redis: Arc::new(redis_client),
     };
 
-    let routes = router()
+    let routes = router(state.clone())
         .with_state(state);
 
     // run it with hyper on localhost:3000

@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+use redis::Client;
+
 use crate::PgPool;
 use crate::api::auth::session::TokenList;
 
@@ -7,4 +9,5 @@ use crate::api::auth::session::TokenList;
 pub struct AppState {
   pub token_list: Arc<Mutex<TokenList>>,
   pub pool: Arc<PgPool>,
+  pub redis: Arc<Client>,
 }
