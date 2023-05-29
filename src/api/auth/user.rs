@@ -51,6 +51,7 @@ async fn get_all_users(
   Ok((StatusCode::OK, Json(response)))
 }
 
+// TODO: Extend for registration-code
 async fn add_user(
   State(state): State<AppState>,
   Json(new_user): Json<NewUserBody>,
@@ -151,11 +152,11 @@ async fn refresh_user_token(
 }
 
 // pub fn router(appState: AppState) -> Router<AppState> {
-pub fn router() -> Router<AppState> {
+pub fn router(state: AppState) -> Router<AppState> {
   Router::new()
     .route("/users", get(get_all_users))
     .route("/auth/register", post(add_user))
     .route("/auth/login", post(login_user))
-    .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn(logged_in_guard)))
+    .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/refresh/:refresh_token", get(refresh_user_token))
 }
