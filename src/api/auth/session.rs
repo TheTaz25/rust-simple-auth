@@ -40,9 +40,9 @@ pub struct TokenPair {
 
 
 impl TokenPair {
-  pub fn new(user: Uuid) -> Self {
+  pub fn new(user: &Uuid) -> Self {
     TokenPair {
-      user,
+      user: user.to_owned(),
       access_token: Token::new(Duration::days(14)),
       refresh_token: Token::new(Duration::days(31))
     }

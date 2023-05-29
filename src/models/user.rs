@@ -1,3 +1,4 @@
+use axum::http::StatusCode;
 use diesel::prelude::*;
 use uuid::Uuid;
 use crate::schema::users;
@@ -8,6 +9,16 @@ pub struct User {
   pub username: String,
   pub password: String,
   pub admin: Option<bool>,
+}
+
+impl User {
+  pub fn verify_password(&self, password: String) -> Result<(), StatusCode> {
+    let success = bcrypt::verify(password, &self.password);
+    match success {
+      Ok(_) => Ok(()),
+      _ => Err(StatusCode::FORBIDDEN)
+    }
+  }
 }
 
 #[derive(Insertable)]
