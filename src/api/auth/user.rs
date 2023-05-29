@@ -6,16 +6,15 @@ use axum::{
   middleware,
   // debug_handler,
 };
-use diesel::{ExpressionMethods, dsl::count_star, SelectableHelper, associations::HasTable};
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
-use diesel::query_dsl::methods::{FilterDsl,SelectDsl};
-use diesel_async::RunQueryDsl;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::NewUser};
+use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::NewUser, api::auth::queries::{q_get_all_users, q_does_user_exist, q_get_user_by_name}};
 use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
 use crate::models::user::User;
+
+use super::queries::q_insert_user;
 
 #[derive(Clone)]
 pub struct UserList {
@@ -64,18 +63,13 @@ struct NewUserBody {
 async fn get_all_users(
   State(state): State<AppState>
 ) -> Result<(StatusCode, Json<UserListResponse>), StatusCode> {
-  use crate::schema::users::dsl::*;
-
   let mut connection = state
     .pool
     .get()
     .await
     .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-  let query_result = users::table()
-    .load(&mut connection)
-    .await
-    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+  let query_result = q_get_all_users(&mut connection).await?;
 
   let response = UserListResponse {
     users: query_result
@@ -88,37 +82,28 @@ async fn add_user(
   State(state): State<AppState>,
   Json(new_user): Json<NewUserBody>,
 ) -> Result<StatusCode, StatusCode> {
-  use crate::schema::users::dsl::*;
-  use crate::schema::users;
-
   let mut connection = state
     .pool
     .get()
     .await
     .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
-  let results: i64 = users
-    .filter(username.eq(&new_user.username))
-    .select(count_star())
-    .first(&mut connection)
-    .await.ok().unwrap();
+  let does_exist = q_does_user_exist(&mut connection, &new_user.username).await;
 
-  if results != 0 {
+  if does_exist.is_ok() {
     return Err(StatusCode::CONFLICT);
   }
 
-  let hashed = hash_password(new_user.password).or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+  let hashed = hash_password(new_user.password)
+    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
   let new_user_ = NewUser {
     username: &new_user.username,
     user_id: &Uuid::new_v4(),
     password: &hashed
   };
 
-  diesel::insert_into(users::table)
-    .values(new_user_)
-    .execute(&mut connection)
-    .await
-    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+  q_insert_user(&mut connection, new_user_).await?;
 
   Ok(StatusCode::CREATED)
 }
@@ -138,8 +123,6 @@ async fn login_user(
   State(state): State<AppState>,
   Json(user_data): Json<LoginBody>
 ) -> Result<(StatusCode, Json<LoginResponse>), StatusCode> {
-  use crate::schema::users::dsl::*;
-
   let mut connection = state
     .pool
     .get()
@@ -147,12 +130,7 @@ async fn login_user(
     .or_else(|_| Err(StatusCode::FORBIDDEN))?;
 
   // find user by username
-  let result: User = users
-    .filter(username.eq(&user_data.username))
-    .select(User::as_select())
-    .first::<User>(&mut connection)
-    .await
-    .or_else(|_| Err(StatusCode::NOT_FOUND))?;
+  let result: User = q_get_user_by_name(&mut connection, &user_data.username).await?;
   
   // verify user password
   result.verify_password(user_data.password)?;
@@ -199,6 +177,7 @@ async fn refresh_user_token(
   Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
 }
 
+// pub fn router(appState: AppState) -> Router<AppState> {
 pub fn router() -> Router<AppState> {
   Router::new()
     .route("/users", get(get_all_users))
