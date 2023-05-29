@@ -4,40 +4,45 @@ use axum::{
   routing::{get,post},
   http::StatusCode,
   middleware,
+  debug_handler,
 };
+use diesel::{ExpressionMethods, dsl::count_star};
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
+use diesel::query_dsl::methods::{FilterDsl,SelectDsl};
+use diesel_async::RunQueryDsl;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard};
+use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::NewUser};
 use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
+use crate::models::user::User;
 
-#[derive(Clone, Serialize)]
-pub struct User {
-  user_id: Uuid,
-  username: String,
-  password: String,
-  admin: bool,
-}
+// #[derive(Clone, Serialize)]
+// pub struct User {
+//   user_id: Uuid,
+//   username: String,
+//   password: String,
+//   admin: bool,
+// }
 
-impl User {
-  pub fn new(username: String, clear_text_password: String, admin: bool) -> Self {
-    User {
-      user_id: Uuid::new_v4(),
-      username,
-      password: hash_password(clear_text_password).expect("Was not able to generate a hashed password"),
-      admin,
-    }
-  }
-  fn verify_password(&self, password: String) -> Result<(), (StatusCode, String)> {
-    let success = bcrypt::verify(password, &self.password).is_ok();
-    if success {
-      Ok(())
-    } else {
-      Err((StatusCode::FORBIDDEN, String::from("wrong password")))
-    }
-  }
-}
+// impl User {
+  // pub fn new(username: String, clear_text_password: String, admin: bool) -> Self {
+  //   User {
+  //     user_id: Uuid::new_v4(),
+  //     username,
+  //     password: hash_password(clear_text_password).expect("Was not able to generate a hashed password"),
+  //     admin,
+  //   }
+  // }
+//   fn verify_password(&self, password: String) -> Result<(), (StatusCode, String)> {
+//     let success = bcrypt::verify(password, &self.password).is_ok();
+//     if success {
+//       Ok(())
+//     } else {
+//       Err((StatusCode::FORBIDDEN, String::from("wrong password")))
+//     }
+//   }
+// }
 
 #[derive(Clone)]
 pub struct UserList {
@@ -101,19 +106,42 @@ async fn find_user(
   Ok((StatusCode::OK, Json(UserResponse { user: found_user.clone() })))
 }
 
+#[debug_handler]
 async fn add_user(
   State(state): State<AppState>,
   Json(new_user): Json<NewUserBody>,
 ) -> Result<StatusCode, StatusCode> {
-  let mut user_list = state.user_list.lock().unwrap();
+  use crate::schema::users::dsl::*;
+  use crate::schema::users;
 
-  if user_list.exists(&new_user.username) {
-    return Err(StatusCode::CONFLICT)
+  let mut connection = state
+    .pool
+    .get()
+    .await
+    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+
+  let results: i64 = users
+    .filter(username.eq(&new_user.username))
+    .select(count_star())
+    .first(&mut connection)
+    .await.ok().unwrap();
+
+  if results != 0 {
+    return Err(StatusCode::CONFLICT);
   }
 
-  user_list.add(
-    User::new(new_user.username, new_user.password, false)
-  );
+  let hashed = hash_password(new_user.password).or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+  let new_user_ = NewUser {
+    username: &new_user.username,
+    user_id: &Uuid::new_v4(),
+    password: &hashed
+  };
+
+  diesel::insert_into(users::table)
+    .values(new_user_)
+    .execute(&mut connection)
+    .await
+    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
   Ok(StatusCode::CREATED)
 }
@@ -129,22 +157,22 @@ struct LoginResponse {
   tokens: TokenPair
 }
 
-async fn login_user(
-  State(state): State<AppState>,
-  Json(user_data): Json<LoginBody>
-) -> Result<(StatusCode, Json<LoginResponse>), (StatusCode, String)> {
-  let user_list = state.user_list.lock().unwrap();
-  let mut token_list = state.token_list.lock().unwrap();
+// async fn login_user(
+//   State(state): State<AppState>,
+//   Json(user_data): Json<LoginBody>
+// ) -> Result<(StatusCode, Json<LoginResponse>), (StatusCode, String)> {
+//   let user_list = state.user_list.lock().unwrap();
+//   let mut token_list = state.token_list.lock().unwrap();
 
-  let user = user_list.find(&user_data.username)?;
-  user.verify_password(user_data.password)?;
+//   let user = user_list.find(&user_data.username)?;
+//   user.verify_password(user_data.password)?;
 
-  let token_pair = TokenPair::new(user.user_id);
+//   let token_pair = TokenPair::new(user.user_id);
 
-  token_list.add(token_pair);
+//   token_list.add(token_pair);
 
-  Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
-}
+//   Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
+// }
 
 #[derive(Serialize)]
 struct AllTokensResponse {
@@ -184,7 +212,7 @@ pub fn router() -> Router<AppState> {
     .route("/users", get(get_all_users))
     .route("/users/name/:name", get(find_user))
     .route("/auth/register", post(add_user))
-    .route("/auth/login", post(login_user))
+    // .route("/auth/login", post(login_user))
     .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn(logged_in_guard)))
     .route("/auth/refresh/:refresh_token", get(refresh_user_token))
 }

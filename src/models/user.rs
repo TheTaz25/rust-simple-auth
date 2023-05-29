@@ -2,7 +2,7 @@ use diesel::prelude::*;
 use uuid::Uuid;
 use crate::schema::users;
 
-#[derive(serde::Serialize, serde::Deserialize, Selectable, Queryable)]
+#[derive(serde::Serialize, serde::Deserialize, Selectable, Queryable, Clone)]
 pub struct User {
   pub user_id: Uuid,
   pub username: String,
