@@ -16,33 +16,6 @@ use crate::models::user::User;
 
 use super::queries::q_insert_user;
 
-#[derive(Clone)]
-pub struct UserList {
-  list: Vec<User>
-}
-
-impl UserList {
-  pub fn new() -> Self {
-    UserList { list: vec![] }
-  }
-
-  pub fn get_all(&self) -> Vec<User> {
-    self.list.to_vec()
-  }
-
-  pub fn add(&mut self, user_to_add: User) {
-    self.list.push(user_to_add)
-  }
-
-  pub fn find(&self, name: &str) -> Result<&User, (StatusCode, String)> {
-    self.list.iter().find(|user| user.username == name).ok_or((StatusCode::NOT_FOUND, String::from("User unknown")))
-  }
-
-  pub fn exists(&self, name: &str) -> bool {
-    self.list.iter().any(|u| u.username == name)
-  }
-}
-
 #[derive(Serialize)]
 struct UserListResponse {
   users: Vec<User>
