@@ -1,22 +1,21 @@
 use std::sync::{Mutex, Arc};
 use back_end_paper_2::api::system_setup::init_admin_user::setup;
-use diesel_async::{pooled_connection::AsyncDieselConnectionManager};
+use back_end_paper_2::state::postgres_wrapper::WrappedPostgres;
 use dotenv::dotenv;
 
 use back_end_paper_2::api::auth::user::router;
 use back_end_paper_2::state::AppState;
 use back_end_paper_2::api::auth::session::TokenList;
+use back_end_paper_2::state::redis_wrapper::WrappedRedis;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
 
     // BEGIN Database Setup
-    let db_url = build_db_from_env();
-    let db_config = AsyncDieselConnectionManager::<diesel_async::AsyncPgConnection>::new(db_url);
-    let db_pool = bb8::Pool::builder().build(db_config).await.expect("Failed to setup a database pool");
-
-    let adm_setup_result = setup(&db_pool).await;
+    let pg_client = WrappedPostgres::new().await;
+    
+    let adm_setup_result = setup(&pg_client.postgres).await;
 
     match adm_setup_result {
         Ok(_) => println!("Fresh start. Initialized the provided adm-default user"),
@@ -24,13 +23,13 @@ async fn main() {
     }
     // END Database Setup
     // BEGIN REDIS SETUP
-    let redis_client = redis::Client::open("redis://127.0.0.1").unwrap();
+    let redis_client = WrappedRedis::new();
     // END REDIS SETUP
 
 
     let state = AppState {
         token_list: Arc::new(Mutex::new(TokenList::new())),
-        pool: Arc::new(db_pool),
+        pool: Arc::new(pg_client),
         redis: Arc::new(redis_client),
     };
 
@@ -42,13 +41,4 @@ async fn main() {
         .serve(routes.into_make_service())
         .await
         .unwrap();
-}
-
-fn build_db_from_env() -> String {
-    let db_user = std::env::var("DB_USER").expect("env var 'DB_USER' should contain an existing database username");
-    let db_pass = std::env::var("DB_PASS").expect("env var 'DB_PASS' should contain the password for 'DB_USER'");
-    let db_host = std::env::var("DB_HOST").expect("env var 'DB_HOST' should be set to host running the database");
-    let db_name = std::env::var("DB_NAME").expect("env var 'DB_NAME' should be set to the database that will be used");
-
-    format!("postgres://{}:{}@{}/{}", db_user, db_pass, db_host, db_name)
 }

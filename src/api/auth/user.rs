@@ -37,10 +37,7 @@ async fn get_all_users(
   State(state): State<AppState>
 ) -> Result<(StatusCode, Json<UserListResponse>), StatusCode> {
   let mut connection = state
-    .pool
-    .get()
-    .await
-    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+    .pool.get_connection().await?.connection;
 
   let query_result = q_get_all_users(&mut connection).await?;
 
@@ -56,11 +53,7 @@ async fn add_user(
   State(state): State<AppState>,
   Json(new_user): Json<NewUserBody>,
 ) -> Result<StatusCode, StatusCode> {
-  let mut connection = state
-    .pool
-    .get()
-    .await
-    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+  let mut connection = state.pool.get_connection().await?.connection;
 
   let does_exist = q_does_user_exist(&mut connection, &new_user.username).await;
 
@@ -92,16 +85,12 @@ struct LoginBody {
 struct LoginResponse {
   tokens: TokenPair
 }
-
 async fn login_user(
   State(state): State<AppState>,
   Json(user_data): Json<LoginBody>
 ) -> Result<(StatusCode, Json<LoginResponse>), StatusCode> {
   let mut connection = state
-    .pool
-    .get()
-    .await
-    .or_else(|_| Err(StatusCode::FORBIDDEN))?;
+    .pool.get_connection().await?.connection;
 
   // find user by username
   let result: User = q_get_user_by_name(&mut connection, &user_data.username).await?;
