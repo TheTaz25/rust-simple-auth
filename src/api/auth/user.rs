@@ -61,11 +61,6 @@ async fn add_user(
     return Err(StatusCode::CONFLICT);
   }
 
-  // let action = state.pool.with_connection(|mut conn| async move {
-  //   let res = q_get_all_users(&mut conn).await;
-  //   res
-  // }).await;
-
   let hashed = hash_password(new_user.password)
     .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
 
