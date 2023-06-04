@@ -1,5 +1,3 @@
-
-
 pub fn hash_password(password: String) -> Result<String, String> {
   let hash_result = bcrypt::hash(password, 10);
   match hash_result {
