@@ -1,12 +1,11 @@
 use axum::http::{HeaderMap, header, StatusCode};
-use uuid::Uuid;
 
-pub fn get_authorization_as_uuid(headers: &HeaderMap) -> Result<Uuid, StatusCode> {
+pub fn get_authorization_as_uuid(headers: &HeaderMap) -> Result<String, StatusCode> {
   let auth_string = headers
     .get(header::AUTHORIZATION);
 
   if let Some(st) = auth_string {
-    return Uuid::parse_str(&st.to_str().unwrap()).or_else(|_| Err(StatusCode::UNAUTHORIZED))
+    return Ok(st.to_str().unwrap().to_string());
   }
   Err(StatusCode::UNAUTHORIZED)
 }
