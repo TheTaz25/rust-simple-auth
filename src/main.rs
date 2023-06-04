@@ -2,6 +2,8 @@ use std::sync::{Mutex, Arc};
 use back_end_paper_2::api::system_setup::init_admin_user::setup;
 use back_end_paper_2::state::postgres_wrapper::WrappedPostgres;
 use dotenv::dotenv;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tower_http::trace::TraceLayer;
 
 use back_end_paper_2::api::auth::user::router;
 use back_end_paper_2::state::AppState;
@@ -11,6 +13,16 @@ use back_end_paper_2::state::redis_wrapper::WrappedRedis;
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+
+    // BEGIN TRACING SETUP
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "tower_http=debug".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+    // END TRACING SETUP
 
     // BEGIN Database Setup
     let pg_client = WrappedPostgres::new().await;
@@ -34,7 +46,8 @@ async fn main() {
     };
 
     let routes = router(state.clone())
-        .with_state(state);
+        .with_state(state)
+        .layer(TraceLayer::new_for_http());
 
     // run it with hyper on localhost:3000
     axum::Server::bind(&"127.0.0.1:8080".parse().unwrap())

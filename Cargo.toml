@@ -17,3 +17,5 @@ bb8 = "0.8.0"
 diesel = { version = "2.0.4", features = ["uuid"] }
 diesel-async = { version = "0.2.2", features = ["bb8", "postgres"]}
 redis = { version = "0.23.0", features = ["aio", "connection-manager", "tokio-comp"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+tower-http = { version = "0.4.0", features = ["trace"] }
