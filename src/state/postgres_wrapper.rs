@@ -1,4 +1,4 @@
-use std::{sync::Arc, future::Future, pin::Pin};
+use std::{sync::Arc, future::Future};
 
 use axum::http::StatusCode;
 use bb8::PooledConnection;
@@ -31,22 +31,19 @@ impl WrappedPostgres {
 
   // TODO: Need to do more research on lifetimes as this does not seem to work as I want it to
   #[allow(dead_code)]
-  async fn with_connection<
+  pub async fn with_connection<
+    'a,
     F,
     Fut,
     U
   >(&self, executor: F) -> Result<U, StatusCode> where
-    F: FnOnce(&Pin<Box<PooledConnection<AsyncDieselConnectionManager<AsyncPgConnection>>>>) -> Fut,
+    F: FnOnce(&mut Box<WrappedPooledConnection>) -> Fut,
     Fut: Future<Output = Result<U, StatusCode>>,
   {
-    let connection = self.postgres.get().await
-      .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+    let mut connection = self.get_connection().await?;
 
-    let pinned_connection = Box::pin(connection);
-    
-    let res = executor(&pinned_connection).await?;
+    let res = executor(&mut connection).await?;
 
-    drop(pinned_connection);
     Ok(res)
   }
 }
