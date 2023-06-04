@@ -6,6 +6,7 @@ use diesel::dsl::count_star;
 use diesel::query_dsl::methods::{FilterDsl,SelectDsl};
 use diesel_async::RunQueryDsl;
 use diesel_async::{pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection};
+use uuid::Uuid;
 
 use crate::models::user::{User, NewUser};
 
@@ -53,6 +54,17 @@ pub async fn q_get_user_by_name(connection: &mut Conn<'_>, _username: &String) -
 
   users
     .filter(username.eq(_username))
+    .select(User::as_select())
+    .first::<User>(connection)
+    .await
+    .or_else(|_| Err(StatusCode::NOT_FOUND))
+}
+
+pub async fn q_get_user_by_id(connection: &mut Conn<'_>, _user_id: Uuid) -> Result<User, StatusCode> {
+  use crate::schema::users::dsl::*;
+
+  users
+    .filter(user_id.eq(_user_id))
     .select(User::as_select())
     .first::<User>(connection)
     .await
