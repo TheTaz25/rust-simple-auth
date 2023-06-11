@@ -95,14 +95,18 @@ async fn login_user(
   // find user by username
   let result: User = q_get_user_by_name(&mut connection, &user_data.username).await?;
   
+  // let y = state.pool.with_connection(|connection| async move {
+  //   let o = q_get_all_users(&mut connection.as_mut().connection).await?;
+  //   Ok(o)
+  // }).await?;
+  
   // verify user password
   result.verify_password(user_data.password)?;
   
   // generate token pair, save it
-  // TODO: MOVE TO REDIS
-  let mut token_list = state.token_list.lock().unwrap();
   let token_pair = TokenPair::new(&result.user_id);
-  token_list.add(token_pair);
+  state.redis.save_token_pair_for_user(&token_pair).await?;
+
 
   Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
 }
@@ -113,12 +117,9 @@ struct AllTokensResponse {
 }
 
 async fn test_user_authorized(
-  State(state): State<AppState>,
-  Extension(auth_uuid): Extension<Uuid>,
+  Extension(user): Extension<User>,
 ) -> Result<StatusCode, StatusCode> {
-  let token_list = state.token_list.lock().unwrap();
-  let user_id = token_list.get_user_id_from_access_token(auth_uuid)?;
-  println!("{}", user_id.to_string());
+  println!("{}", user.user_id.to_string());
   Ok(StatusCode::OK)
 }
 
@@ -126,16 +127,14 @@ async fn refresh_user_token(
   State(state): State<AppState>,
   Path(refresh_token): Path<Uuid>,
 ) -> Result<(StatusCode, Json<LoginResponse>), StatusCode> {
-  let mut token_list = state.token_list.lock().unwrap();
-
-  // Check if token is valid, extract user-id, invalidate old tokens
-  token_list.refresh_token_valid(refresh_token)?;
-  let user_id = token_list.get_user_id_from_refresh_token(refresh_token)?;
-  token_list.remove_by_refresh_token(refresh_token);
+  let (user_id, access_token) = state.redis.invalidate_refresh_token_and_get_result(refresh_token).await?;
+  state.redis.clear_token(&access_token).await?;
 
   // generate new pair of tokens, save it
-  let token_pair = TokenPair::new(&user_id);
-  token_list.add(token_pair);
+  let user_uuid = Uuid::parse_str(&user_id).or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+  let token_pair = TokenPair::new(&user_uuid);
+
+  state.redis.save_token_pair_for_user(&token_pair).await?;
 
   Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
 }
