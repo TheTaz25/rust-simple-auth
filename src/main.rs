@@ -1,4 +1,4 @@
-use std::sync::{Mutex, Arc};
+use std::sync::Arc;
 use back_end_paper_2::api::system_setup::init_admin_user::setup;
 use back_end_paper_2::state::postgres_wrapper::WrappedPostgres;
 use dotenv::dotenv;
@@ -7,7 +7,6 @@ use tower_http::trace::TraceLayer;
 
 use back_end_paper_2::api::auth::user::router;
 use back_end_paper_2::state::AppState;
-use back_end_paper_2::api::auth::session::TokenList;
 use back_end_paper_2::state::redis_wrapper::WrappedRedis;
 
 #[tokio::main]
@@ -40,7 +39,6 @@ async fn main() {
 
 
     let state = AppState {
-        token_list: Arc::new(Mutex::new(TokenList::new())),
         pool: Arc::new(pg_client),
         redis: Arc::new(redis_client),
     };
