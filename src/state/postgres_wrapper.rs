@@ -1,10 +1,9 @@
 use std::{sync::Arc, future::Future};
 
-use axum::http::StatusCode;
 use bb8::PooledConnection;
 use diesel_async::{pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection};
 
-use crate::PgPool;
+use crate::{PgPool, utils::error::Fault};
 
 #[derive(Clone)]
 pub struct WrappedPostgres {
@@ -23,9 +22,9 @@ impl WrappedPostgres {
     WrappedPostgres { postgres: Arc::new(pool) }
   }
 
-  pub async fn get_connection(&self) -> Result<Box<WrappedPooledConnection>, StatusCode> {
+  pub async fn get_connection(&self) -> Result<Box<WrappedPooledConnection>, Fault> {
     self.postgres.get().await
-      .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))
+      .or_else(|_| Err(Fault::DatabaseConnectionError))
       .and_then(|c| Ok(Box::new(WrappedPooledConnection { connection: c })))
   }
 
@@ -36,9 +35,9 @@ impl WrappedPostgres {
     F,
     Fut,
     U
-  >(&self, executor: F) -> Result<U, StatusCode> where
+  >(&self, executor: F) -> Result<U, Fault> where
     F: FnOnce(&mut Box<WrappedPooledConnection>) -> Fut,
-    Fut: Future<Output = Result<U, StatusCode>>,
+    Fut: Future<Output = Result<U, Fault>>,
   {
     let mut connection = self.get_connection().await?;
 
