@@ -9,7 +9,7 @@ use axum::{
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::NewUser, api::auth::queries::{q_get_all_users, q_does_user_exist, q_get_user_by_name}};
+use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::NewUser, api::auth::queries::{q_get_all_users, q_does_user_exist, q_get_user_by_name}, utils::error::Fault};
 use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
 use crate::models::user::User;
@@ -35,7 +35,7 @@ struct NewUserBody {
 // TODO: Only callable by admins
 async fn get_all_users(
   State(state): State<AppState>
-) -> Result<(StatusCode, Json<UserListResponse>), StatusCode> {
+) -> Result<(StatusCode, Json<UserListResponse>), Fault> {
   let mut connection = state
     .pool.get_connection().await?.connection;
 
@@ -52,17 +52,17 @@ async fn get_all_users(
 async fn add_user(
   State(state): State<AppState>,
   Json(new_user): Json<NewUserBody>,
-) -> Result<StatusCode, StatusCode> {
+) -> Result<StatusCode, Fault> {
   let mut connection = state.pool.get_connection().await?.connection;
 
   let does_exist = q_does_user_exist(&mut connection, &new_user.username).await;
 
   if does_exist.is_ok() {
-    return Err(StatusCode::CONFLICT);
+    return Err(Fault::AlreadyExists(String::from("User")));
   }
 
   let hashed = hash_password(new_user.password)
-    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+    .or_else(|_| Err(Fault::Unexpected))?;
 
   let new_user_ = NewUser {
     username: &new_user.username,
@@ -88,7 +88,7 @@ struct LoginResponse {
 async fn login_user(
   State(state): State<AppState>,
   Json(user_data): Json<LoginBody>
-) -> Result<(StatusCode, Json<LoginResponse>), StatusCode> {
+) -> Result<(StatusCode, Json<LoginResponse>), Fault> {
   let mut connection = state
     .pool.get_connection().await?.connection;
 
@@ -118,7 +118,7 @@ struct AllTokensResponse {
 
 async fn test_user_authorized(
   Extension(user): Extension<User>,
-) -> Result<StatusCode, StatusCode> {
+) -> Result<StatusCode, Fault> {
   println!("{}", user.user_id.to_string());
   Ok(StatusCode::OK)
 }
@@ -126,12 +126,12 @@ async fn test_user_authorized(
 async fn refresh_user_token(
   State(state): State<AppState>,
   Path(refresh_token): Path<Uuid>,
-) -> Result<(StatusCode, Json<LoginResponse>), StatusCode> {
+) -> Result<(StatusCode, Json<LoginResponse>), Fault> {
   let (user_id, access_token) = state.redis.invalidate_refresh_token_and_get_result(refresh_token).await?;
   state.redis.clear_token(&access_token).await?;
 
   // generate new pair of tokens, save it
-  let user_uuid = Uuid::parse_str(&user_id).or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+  let user_uuid = Uuid::parse_str(&user_id).or_else(|_| Err(Fault::UuidConversion))?;
   let token_pair = TokenPair::new(&user_uuid);
 
   state.redis.save_token_pair_for_user(&token_pair).await?;

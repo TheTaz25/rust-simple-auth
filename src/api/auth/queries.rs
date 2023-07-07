@@ -1,4 +1,3 @@
-use axum::http::StatusCode;
 use bb8::PooledConnection;
 use diesel::{ExpressionMethods, SelectableHelper};
 use diesel::associations::HasTable;
@@ -9,16 +8,17 @@ use diesel_async::{pooled_connection::AsyncDieselConnectionManager, AsyncPgConne
 use uuid::Uuid;
 
 use crate::models::user::{User, NewUser};
+use crate::utils::error::Fault;
 
 type Conn<'a> = PooledConnection<'a, AsyncDieselConnectionManager<AsyncPgConnection>>;
 
-pub async fn q_get_all_users(connection: &mut Conn<'_>) -> Result<Vec<User>, StatusCode> {
+pub async fn q_get_all_users(connection: &mut Conn<'_>) -> Result<Vec<User>, Fault> {
   use crate::schema::users::dsl::*;
 
   let res = users::table()
     .load::<User>( connection)
     .await
-    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+    .or_else(|_| Err(Fault::DatabaseConnection))?;
 
   Ok(res)
 }
@@ -38,18 +38,18 @@ pub async fn q_does_user_exist(connection: &mut Conn<'_>, _username: &String) ->
   Err(())
 }
 
-pub async fn q_insert_user(connection: &mut Conn<'_>, to_insert: NewUser<'_>) -> Result<(), StatusCode> {
+pub async fn q_insert_user(connection: &mut Conn<'_>, to_insert: NewUser<'_>) -> Result<(), Fault> {
   use crate::schema::users;
 
   diesel::insert_into(users::table)
     .values(to_insert)
     .execute(connection)
     .await
-    .or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))
+    .or_else(|_| Err(Fault::Diesel))
     .and_then(|_| Ok(()))
 }
 
-pub async fn q_get_user_by_name(connection: &mut Conn<'_>, _username: &String) -> Result<User, StatusCode> {
+pub async fn q_get_user_by_name(connection: &mut Conn<'_>, _username: &String) -> Result<User, Fault> {
   use crate::schema::users::dsl::*;
 
   users
@@ -57,10 +57,10 @@ pub async fn q_get_user_by_name(connection: &mut Conn<'_>, _username: &String) -
     .select(User::as_select())
     .first::<User>(connection)
     .await
-    .or_else(|_| Err(StatusCode::NOT_FOUND))
+    .or_else(|_| Err(Fault::NotFound(String::from("User"))))
 }
 
-pub async fn q_get_user_by_id(connection: &mut Conn<'_>, _user_id: Uuid) -> Result<User, StatusCode> {
+pub async fn q_get_user_by_id(connection: &mut Conn<'_>, _user_id: Uuid) -> Result<User, Fault> {
   use crate::schema::users::dsl::*;
 
   users
@@ -68,5 +68,5 @@ pub async fn q_get_user_by_id(connection: &mut Conn<'_>, _user_id: Uuid) -> Resu
     .select(User::as_select())
     .first::<User>(connection)
     .await
-    .or_else(|_| Err(StatusCode::NOT_FOUND))
+    .or_else(|_| Err(Fault::NotFound(String::from("User"))))
 }

@@ -1,8 +1,7 @@
-use axum::http::StatusCode;
 use redis::{aio::MultiplexedConnection, AsyncCommands, Cmd};
 use uuid::Uuid;
 
-use crate::api::auth::session::TokenPair;
+use crate::{api::auth::session::TokenPair, utils::error::Fault};
 
 use super::RedisClient;
 
@@ -19,11 +18,11 @@ impl WrappedRedis {
     }
   }
 
-  pub async fn get_connection(&self) -> Result<MultiplexedConnection, StatusCode> {
-    self.redis.get_multiplexed_tokio_connection().await.or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))
+  pub async fn get_connection(&self) -> Result<MultiplexedConnection, Fault> {
+    self.redis.get_multiplexed_tokio_connection().await.or_else(|_| Err(Fault::DatabaseConnection))
   }
 
-  pub async fn save_token_pair_for_user(&self, pair: &TokenPair) -> Result<(), StatusCode> {
+  pub async fn save_token_pair_for_user(&self, pair: &TokenPair) -> Result<(), Fault> {
     let mut con = self.get_connection().await?;
 
     redis::pipe()
@@ -38,44 +37,44 @@ impl WrappedRedis {
         pair.refresh_token.duration,
       ))
       .query_async(&mut con).await.or_else(|_| {
-        Err(StatusCode::INTERNAL_SERVER_ERROR)
+        Err(Fault::DatabaseConnection)
       })?;
 
     Ok(())
   }
 
-  async fn get_user_for_token(&self, token: &String) -> Result<Uuid, StatusCode> {
+  async fn get_user_for_token(&self, token: &String) -> Result<Uuid, Fault> {
     let mut con = self.get_connection().await?;
 
-    let result: String = con.get(token).await.or_else(|_| Err(StatusCode::UNAUTHORIZED))?;
+    let result: String = con.get(token).await.or_else(|_| Err(Fault::NotLoggedIn))?;
 
     let splits: Vec<&str> = result.split(":").into_iter().collect();
 
-    let parsed = Uuid::parse_str(&splits[0]).or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+    let parsed = Uuid::parse_str(&splits[0]).or_else(|_| Err(Fault::UuidConversion))?;
 
     Ok(parsed)
   }
 
-  pub async fn get_user_for_access_token(&self, access_token: &String) -> Result<Uuid, StatusCode> {
+  pub async fn get_user_for_access_token(&self, access_token: &String) -> Result<Uuid, Fault> {
     self.get_user_for_token(&format!("ACCESS:{}", access_token)).await
   }
 
-  pub async fn get_user_from_refresh_token(&self, refresh_token: &String) -> Result<Uuid, StatusCode> {
+  pub async fn get_user_from_refresh_token(&self, refresh_token: &String) -> Result<Uuid, Fault> {
     self.get_user_for_token(&format!("REFRESH:{}", refresh_token)).await
   }
 
-  pub async fn clear_token(&self, token: &String) -> Result<(), StatusCode> {
+  pub async fn clear_token(&self, token: &String) -> Result<(), Fault> {
     let mut con = self.get_connection().await?;
     
-    con.del(format!("ACCESS:{}", token)).await.or_else(|_| Err(StatusCode::INTERNAL_SERVER_ERROR))?;
+    con.del(format!("ACCESS:{}", token)).await.or_else(|_| Err(Fault::Unexpected))?;
 
     Ok(())
   }
 
-  pub async fn invalidate_refresh_token_and_get_result(&self, token: Uuid) -> Result<(String, String), StatusCode> {
+  pub async fn invalidate_refresh_token_and_get_result(&self, token: Uuid) -> Result<(String, String), Fault> {
     let mut con = self.get_connection().await?;
 
-    let result: String = con.get_del(format!("REFRESH:{}", token.to_string())).await.or_else(|_| Err(StatusCode::UNAUTHORIZED))?;
+    let result: String = con.get_del(format!("REFRESH:{}", token.to_string())).await.or_else(|_| Err(Fault::NotLoggedIn))?;
 
     let splits: Vec<&str> = result.split(":").into_iter().collect();
 

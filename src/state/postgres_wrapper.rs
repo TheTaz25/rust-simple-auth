@@ -24,7 +24,7 @@ impl WrappedPostgres {
 
   pub async fn get_connection(&self) -> Result<Box<WrappedPooledConnection>, Fault> {
     self.postgres.get().await
-      .or_else(|_| Err(Fault::DatabaseConnectionError))
+      .or_else(|_| Err(Fault::DatabaseConnection))
       .and_then(|c| Ok(Box::new(WrappedPooledConnection { connection: c })))
   }
 

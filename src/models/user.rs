@@ -1,7 +1,6 @@
-use axum::http::StatusCode;
 use diesel::prelude::*;
 use uuid::Uuid;
-use crate::schema::users;
+use crate::{schema::users, utils::error::Fault};
 
 #[derive(serde::Serialize, serde::Deserialize, Selectable, Queryable, Clone)]
 pub struct User {
@@ -12,11 +11,11 @@ pub struct User {
 }
 
 impl User {
-  pub fn verify_password(&self, password: String) -> Result<(), StatusCode> {
+  pub fn verify_password(&self, password: String) -> Result<(), Fault> {
     let success = bcrypt::verify(password, &self.password);
     match success {
       Ok(_) => Ok(()),
-      _ => Err(StatusCode::FORBIDDEN)
+      _ => Err(Fault::Unallowed)
     }
   }
 }

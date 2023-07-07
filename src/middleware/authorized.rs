@@ -1,12 +1,12 @@
-use axum::{http::{Request, StatusCode}, response::Response, middleware::Next, extract::State};
+use axum::{http::Request, response::Response, middleware::Next, extract::State};
 
-use crate::{utils::parser::get_authorization_as_uuid, state::AppState, api::auth::queries::q_get_user_by_id};
+use crate::{utils::{parser::get_authorization_as_uuid, error::Fault}, state::AppState, api::auth::queries::q_get_user_by_id};
 
 pub async fn logged_in_guard<B>(
   State(state): State<AppState>,
   mut req: Request<B>,
   next: Next<B>,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Fault> {
   let auth_token = get_authorization_as_uuid(&req.headers());
   if let Ok(auth_token) = auth_token {
     let user_uuid = state.redis.get_user_for_access_token(&auth_token).await?;
@@ -18,6 +18,6 @@ pub async fn logged_in_guard<B>(
     req.extensions_mut().insert(user);
     Ok(next.run(req).await)
   } else {
-    Err(StatusCode::UNAUTHORIZED)
+    Err(Fault::NotLoggedIn)
   }
 }
