@@ -9,7 +9,7 @@ use axum::{
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::NewUser, api::auth::queries::{q_get_all_users, q_does_user_exist, q_get_user_by_name}, utils::error::Fault};
+use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::auth::queries::{q_get_all_users, q_does_user_exist, q_get_user_by_name}, utils::error::Fault};
 use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
 use crate::models::user::User;
@@ -23,7 +23,7 @@ struct UserListResponse {
 
 #[derive(Serialize)]
 struct UserResponse {
-  user: User
+  user: UserInfo
 }
 
 #[derive(Deserialize)]
@@ -139,9 +139,15 @@ async fn refresh_user_token(
   Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
 }
 
-// pub fn router(appState: AppState) -> Router<AppState> {
+async fn get_user_info (
+  Extension(user): Extension<User>,
+) -> Result<(StatusCode, Json<UserResponse>), Fault> {
+  Ok((StatusCode::OK, Json(UserResponse { user: UserInfo::from(user) })))
+}
+
 pub fn router(state: AppState) -> Router<AppState> {
   Router::new()
+    .route("/auth/self", get(get_user_info).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/users", get(get_all_users))
     .route("/auth/register", post(add_user))
     .route("/auth/login", post(login_user))

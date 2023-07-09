@@ -10,6 +10,19 @@ pub struct User {
   pub admin: Option<bool>,
 }
 
+#[derive(serde::Serialize)]
+pub struct UserInfo {
+  pub user_id: Uuid,
+  pub username: String,
+  pub admin: Option<bool>
+}
+
+impl From<User> for UserInfo {
+  fn from(user: User) -> Self {
+    UserInfo { user_id: user.user_id, username: user.username, admin: user.admin }
+  }
+}
+
 impl User {
   pub fn verify_password(&self, password: String) -> Result<(), Fault> {
     let success = bcrypt::verify(password, &self.password);
