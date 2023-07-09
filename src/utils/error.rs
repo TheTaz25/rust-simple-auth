@@ -15,8 +15,7 @@ pub enum Fault {
 
 impl IntoResponse for Fault {
   fn into_response(self) -> axum::response::Response {
-      let x = self.clone();
-      let (status, error_message) = match x {
+      let (status, error_message) = match self {
         Fault::DatabaseConnection => (StatusCode::INTERNAL_SERVER_ERROR, "Unknown error".to_string()),
         Fault::NotLoggedIn => (StatusCode::UNAUTHORIZED, "Please log into the application in order to execute this function".to_string()),
         Fault::UuidConversion => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse data due to unexpected format".to_string()),
