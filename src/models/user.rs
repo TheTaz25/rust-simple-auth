@@ -11,6 +11,7 @@ pub struct User {
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all(serialize="camelCase"))]
 pub struct UserInfo {
   pub user_id: Uuid,
   pub username: String,
