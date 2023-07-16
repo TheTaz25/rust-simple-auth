@@ -4,6 +4,7 @@ use back_end_paper_2::state::postgres_wrapper::WrappedPostgres;
 use dotenv::dotenv;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tower_http::trace::TraceLayer;
+use tower_http::cors::CorsLayer;
 
 use back_end_paper_2::api::auth::user::router;
 use back_end_paper_2::state::AppState;
@@ -45,6 +46,7 @@ async fn main() {
 
     let routes = router(state.clone())
         .with_state(state)
+        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
     // run it with hyper on localhost:3000
