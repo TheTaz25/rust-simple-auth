@@ -80,6 +80,18 @@ impl WrappedRedis {
 
     Ok((splits[0].to_string(), splits[1].to_string()))
   }
+
+  pub async fn invalidate_session_by_access_token(&self, token: Uuid) -> Result<(), Fault> {
+    let mut con = self.get_connection().await?;
+
+    let result: String = con.get_del(format!("ACCESS:{}", token.to_string())).await.or_else(|_| Err(Fault::NotLoggedIn))?;
+
+    let refresh_token: String = result.split(":").into_iter().last().unwrap().to_string();
+
+    con.del(format!("REFRESH:{}", refresh_token)).await.or_else(|_| Err(Fault::Unexpected))?;
+
+    Ok(())
+  }
 }
 
 fn build_set_ex_cmd(key: String, value: String, duration: i64) -> Cmd {

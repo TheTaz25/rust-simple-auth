@@ -1,15 +1,17 @@
+use std::str::FromStr;
+
 use axum::{
   Router,
   extract::{State,Json,Path,Extension},
   routing::{get,post},
-  http::StatusCode,
+  http::{StatusCode,HeaderMap},
   middleware,
   // debug_handler,
 };
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::auth::queries::{q_get_all_users, q_does_user_exist, q_get_user_by_name}, utils::error::Fault};
+use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::auth::queries::{q_get_all_users, q_does_user_exist, q_get_user_by_name}, utils::{error::Fault, parser::get_authorization_as_uuid}};
 use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
 use crate::models::user::User;
@@ -145,6 +147,15 @@ async fn get_user_info (
   Ok((StatusCode::OK, Json(UserResponse { user: UserInfo::from(user) })))
 }
 
+async fn logout_user (
+  State(state): State<AppState>,
+  headers: HeaderMap,
+) -> Result<StatusCode, Fault> {
+  let auth_token = get_authorization_as_uuid(&headers)?;
+  state.redis.invalidate_session_by_access_token(Uuid::from_str(&auth_token).ok().unwrap()).await?;
+  Ok(StatusCode::OK)
+}
+
 pub fn router(state: AppState) -> Router<AppState> {
   Router::new()
     .route("/auth/self", get(get_user_info).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
@@ -153,4 +164,5 @@ pub fn router(state: AppState) -> Router<AppState> {
     .route("/auth/login", post(login_user))
     .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/refresh/:refresh_token", get(refresh_user_token))
+    .route("/auth/logout", get(logout_user).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
 }
