@@ -1,15 +1,14 @@
 use axum::{
   middleware,
   Router,
-  routing::get,
+  routing::{get,delete},
   extract::State,
-  Extension,
   http::StatusCode,
   Json,
 };
 use serde::Serialize;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard, utils::error::Fault, api::auth::queries::q_get_all_users, models::user::{User, UserInfo}};
+use crate::{state::AppState, middleware::authorized::admin_guard, utils::error::Fault, api::auth::queries::q_get_all_users, models::user::UserInfo};
 
 #[derive(Serialize)]
 struct UserListResponse {
@@ -18,15 +17,9 @@ struct UserListResponse {
 
 async fn get_all_users(
   State(state): State<AppState>,
-  Extension(user): Extension<User>,
 ) -> Result<(StatusCode, Json<UserListResponse>), Fault> {
-  if let Some(admin) = user.admin {
-    if admin == false {
-      return Err(Fault::Unallowed)
-    }
-
-    let mut connection = state
-    .pool.get_connection().await?.connection;
+  let mut connection = state
+  .pool.get_connection().await?.connection;
 
   let query_result = q_get_all_users(&mut connection).await?;
 
@@ -35,11 +28,38 @@ async fn get_all_users(
   };
 
   return Ok((StatusCode::OK, Json(response)));
-  }
-  Err(Fault::Unallowed)
+}
+
+async fn update_admin() -> Result<StatusCode, Fault> {
+  Err(Fault::NotImplementedYet)
+}
+async fn lock_user() -> Result<StatusCode, Fault> {
+  Err(Fault::NotImplementedYet)
+}
+async fn unlock_user() -> Result<StatusCode, Fault> {
+  Err(Fault::NotImplementedYet)
+}
+async fn delete_user() -> Result<StatusCode, Fault> {
+  Err(Fault::NotImplementedYet)
 }
 
 pub fn router(state: AppState) -> Router<AppState> {
   Router::new()
-    .route("/users", get(get_all_users).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
+    .route("/users", 
+      delete(delete_user)
+      .get(get_all_users)
+      .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
+    )
+    .route("/users/:user_id/admin",
+      get(update_admin)
+      .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
+    )
+    .route("/users/:user_id/lock",
+      get(lock_user)
+      .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
+    )
+    .route("/users/:user_id/unlock",
+      get(unlock_user)
+      .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
+    )
 }

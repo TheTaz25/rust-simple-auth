@@ -6,7 +6,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tower_http::trace::TraceLayer;
 use tower_http::cors::CorsLayer;
 
-use back_end_paper_2::api::auth::auth::router;
+use back_end_paper_2::api::auth::auth::router as auth_router;
+use back_end_paper_2::api::user::user::router as user_router;
 use back_end_paper_2::state::AppState;
 use back_end_paper_2::state::redis_wrapper::WrappedRedis;
 
@@ -44,7 +45,8 @@ async fn main() {
         redis: Arc::new(redis_client),
     };
 
-    let routes = router(state.clone())
+    let routes = auth_router(state.clone())
+        .merge(user_router(state.clone()))
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
