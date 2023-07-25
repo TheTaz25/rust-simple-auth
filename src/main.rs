@@ -6,7 +6,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tower_http::trace::TraceLayer;
 use tower_http::cors::CorsLayer;
 
-use back_end_paper_2::api::auth::user::router;
+use back_end_paper_2::api::auth::auth::router;
 use back_end_paper_2::state::AppState;
 use back_end_paper_2::state::redis_wrapper::WrappedRedis;
 

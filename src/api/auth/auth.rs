@@ -11,17 +11,12 @@ use axum::{
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::auth::queries::{q_get_all_users, q_does_user_exist, q_get_user_by_name}, utils::{error::Fault, parser::get_authorization_as_uuid}};
+use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::auth::queries::{q_does_user_exist, q_get_user_by_name}, utils::{error::Fault, parser::get_authorization_as_uuid}};
 use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
 use crate::models::user::User;
 
 use super::queries::q_insert_user;
-
-#[derive(Serialize)]
-struct UserListResponse {
-  users: Vec<User>
-}
 
 #[derive(Serialize)]
 struct UserResponse {
@@ -32,22 +27,6 @@ struct UserResponse {
 struct NewUserBody {
   username: String,
   password: String,
-}
-
-// TODO: Only callable by admins
-async fn get_all_users(
-  State(state): State<AppState>
-) -> Result<(StatusCode, Json<UserListResponse>), Fault> {
-  let mut connection = state
-    .pool.get_connection().await?.connection;
-
-  let query_result = q_get_all_users(&mut connection).await?;
-
-  let response = UserListResponse {
-    users: query_result
-  };
-
-  Ok((StatusCode::OK, Json(response)))
 }
 
 // TODO: Extend for registration-code
@@ -159,7 +138,6 @@ async fn logout_user (
 pub fn router(state: AppState) -> Router<AppState> {
   Router::new()
     .route("/auth/self", get(get_user_info).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
-    .route("/users", get(get_all_users))
     .route("/auth/register", post(add_user))
     .route("/auth/login", post(login_user))
     .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))

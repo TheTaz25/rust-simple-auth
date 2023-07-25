@@ -7,12 +7,12 @@ use diesel_async::RunQueryDsl;
 use diesel_async::{pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection};
 use uuid::Uuid;
 
-use crate::models::user::{User, NewUser};
+use crate::models::user::{User, NewUser, UserInfo};
 use crate::utils::error::Fault;
 
 type Conn<'a> = PooledConnection<'a, AsyncDieselConnectionManager<AsyncPgConnection>>;
 
-pub async fn q_get_all_users(connection: &mut Conn<'_>) -> Result<Vec<User>, Fault> {
+pub async fn q_get_all_users(connection: &mut Conn<'_>) -> Result<Vec<UserInfo>, Fault> {
   use crate::schema::users::dsl::*;
 
   let res = users::table()
@@ -20,7 +20,11 @@ pub async fn q_get_all_users(connection: &mut Conn<'_>) -> Result<Vec<User>, Fau
     .await
     .or_else(|_| Err(Fault::DatabaseConnection))?;
 
-  Ok(res)
+  let user_info_mapped = res.into_iter()
+    .map(|u| UserInfo::from(u))
+    .collect::<Vec<UserInfo>>();
+
+  Ok(user_info_mapped)
 }
 
 pub async fn q_does_user_exist(connection: &mut Conn<'_>, _username: &String) -> Result<(), ()> {
