@@ -2,13 +2,16 @@ use axum::{
   middleware,
   Router,
   routing::{get,delete},
-  extract::State,
+  extract::{State, Path},
   http::StatusCode,
   Json,
 };
 use serde::Serialize;
+use uuid::Uuid;
 
 use crate::{state::AppState, middleware::authorized::admin_guard, utils::error::Fault, api::auth::queries::q_get_all_users, models::user::UserInfo};
+
+use super::queries::u_set_admin_on_user;
 
 #[derive(Serialize)]
 struct UserListResponse {
@@ -30,8 +33,15 @@ async fn get_all_users(
   return Ok((StatusCode::OK, Json(response)));
 }
 
-async fn update_admin() -> Result<StatusCode, Fault> {
-  Err(Fault::NotImplementedYet)
+async fn update_admin(
+  State(state): State<AppState>,
+  Path((user_id, is_admin)): Path<(Uuid, bool)>
+) -> Result<StatusCode, Fault> {
+  let mut connection = state.pool.get_connection().await?.connection;
+
+  u_set_admin_on_user(&mut connection, user_id, is_admin).await?;
+
+  Ok(StatusCode::OK)
 }
 async fn lock_user() -> Result<StatusCode, Fault> {
   Err(Fault::NotImplementedYet)
@@ -50,7 +60,7 @@ pub fn router(state: AppState) -> Router<AppState> {
       .get(get_all_users)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )
-    .route("/users/:user_id/admin",
+    .route("/users/:user_id/admin/:is_admin",
       get(update_admin)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )
