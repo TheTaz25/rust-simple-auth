@@ -12,6 +12,7 @@ pub enum Fault {
   AlreadyExists(String),
   Unallowed,
   MalformedAuthorization,
+  NotImplementedYet,
 }
 
 impl IntoResponse for Fault {
@@ -25,7 +26,8 @@ impl IntoResponse for Fault {
         Fault::NotFound(thing) => (StatusCode::NOT_FOUND, format!("{thing} not found").to_string()),
         Fault::AlreadyExists(thing) => (StatusCode::CONFLICT, format!("{thing} does already exist").to_string()),
         Fault::Unallowed => (StatusCode::FORBIDDEN, "Insufficient permissions".to_string()),
-        Fault::MalformedAuthorization => (StatusCode::BAD_REQUEST, "Authorization header must be in form of `'TOKEN {{auth_token}}'`".to_string())
+        Fault::MalformedAuthorization => (StatusCode::BAD_REQUEST, "Authorization header must be in form of `'TOKEN {{auth_token}}'`".to_string()),
+        Fault::NotImplementedYet => (StatusCode::NOT_IMPLEMENTED, "Functionality is a To-Do".to_string())
       };
 
       let body = Json(json!({
