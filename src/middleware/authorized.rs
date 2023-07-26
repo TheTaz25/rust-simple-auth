@@ -15,6 +15,10 @@ pub async fn logged_in_guard<B>(
 
     let user = q_get_user_by_id(&mut connection.connection, user_uuid).await?;
 
+    if user.blocked.is_some_and(|b| b) {
+      return Err(Fault::UserBlocked);
+    }
+
     req.extensions_mut().insert(user);
     Ok(next.run(req).await)
   } else {
@@ -35,7 +39,10 @@ pub async fn admin_guard<B>(
 
     let user = q_get_user_by_id(&mut connection.connection, user_uuid).await?;
 
-    if let Some(admin) = user.admin {
+    if let (Some(admin), Some(blocked)) = (user.admin, user.blocked) {
+      if blocked {
+        return Err(Fault::UserBlocked);
+      }
       if admin {
         req.extensions_mut().insert(user);
         return Ok(next.run(req).await);

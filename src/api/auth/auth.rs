@@ -80,6 +80,9 @@ async fn login_user(
   //   let o = q_get_all_users(&mut connection.as_mut().connection).await?;
   //   Ok(o)
   // }).await?;
+  if result.blocked.is_some_and(|b| b == true) {
+    return Err(Fault::UserBlocked);
+  }
   
   // verify user password
   result.verify_password(user_data.password)?;
