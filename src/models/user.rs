@@ -8,6 +8,7 @@ pub struct User {
   pub username: String,
   pub password: String,
   pub admin: Option<bool>,
+  pub blocked: Option<bool>
 }
 
 #[derive(serde::Serialize)]
@@ -15,12 +16,13 @@ pub struct User {
 pub struct UserInfo {
   pub user_id: Uuid,
   pub username: String,
-  pub admin: Option<bool>
+  pub admin: Option<bool>,
+  pub blocked: Option<bool>
 }
 
 impl From<User> for UserInfo {
   fn from(user: User) -> Self {
-    UserInfo { user_id: user.user_id, username: user.username, admin: user.admin }
+    UserInfo { user_id: user.user_id, username: user.username, admin: user.admin, blocked: user.blocked }
   }
 }
 
