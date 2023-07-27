@@ -6,3 +6,12 @@ In order to cross-reference ACCESS and REFRESH tokens, the reference is part of 
 
 ### RefreshTokens
 `REFRESH:{{UUID}} => USER_ID:ACCESS_TOKEN`
+
+## query-files (queries.rs)
+All actions that execute a query shall use a prefix to indicate the type of operation:  
+* `i` indicates insertions  
+* `q` indicate queries  
+* `d` indicate deletions  
+* `u` indicate updates
+
+An example: `i_otp` tells us, that we are going to insert an OTP (One-Time-Password) into the respective database and table

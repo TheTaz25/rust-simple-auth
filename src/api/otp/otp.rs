@@ -1,8 +1,8 @@
-use axum::{Router, routing::post, middleware, http::StatusCode, Json, extract::State};
+use axum::{Router, routing::{post, delete}, middleware, http::StatusCode, Json, extract::{State, Path}};
 
 use crate::{state::AppState, middleware::authorized::admin_guard, utils::error::Fault, models::otp::{NewOtp, OtpExternal}};
 
-use super::queries::{i_otp, q_otp_list};
+use super::queries::{i_otp, q_otp_list, d_otp};
 
 async fn create_otp(
   State(state): State<AppState>,
@@ -27,11 +27,26 @@ async fn list_otp(
   Ok((StatusCode::OK, Json(mapped)))
 }
 
+async fn delete_otp (
+  State(state): State<AppState>,
+  Path(id): Path<i32>
+) -> Result<StatusCode, Fault> {
+  let mut connection = state.pool.get_connection().await?.connection;
+
+  d_otp(&mut connection, id).await?;
+
+  Ok(StatusCode::OK)
+}
+
 pub fn router(state: AppState) -> Router<AppState> {
   Router::new()
     .route("/otp", 
       post(create_otp)
       .get(list_otp)
+      .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
+    )
+    .route("/otp/:id",
+      delete(delete_otp)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )
 }
