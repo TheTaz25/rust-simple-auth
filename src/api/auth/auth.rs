@@ -11,7 +11,7 @@ use axum::{
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::auth::queries::{q_does_user_exist, q_get_user_by_name}, utils::{error::Fault, parser::get_authorization_as_uuid}};
+use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::{auth::queries::{q_does_user_exist, q_get_user_by_name}, otp::queries::q_check_registration_code}, utils::{error::Fault, parser::get_authorization_as_uuid}};
 use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
 use crate::models::user::User;
@@ -24,9 +24,11 @@ struct UserResponse {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
 struct NewUserBody {
   username: String,
   password: String,
+  registration_code: String,
 }
 
 // TODO: Extend for registration-code
@@ -41,6 +43,8 @@ async fn add_user(
   if does_exist.is_ok() {
     return Err(Fault::AlreadyExists(String::from("User")));
   }
+
+  q_check_registration_code(&mut connection, &new_user.registration_code).await?;
 
   let hashed = hash_password(new_user.password)
     .or_else(|_| Err(Fault::Unexpected))?;
