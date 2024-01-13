@@ -30,7 +30,8 @@ impl User {
   pub fn verify_password(&self, password: String) -> Result<(), Fault> {
     let success = bcrypt::verify(password, &self.password);
     match success {
-      Ok(_) => Ok(()),
+      Ok(true) => Ok(()),
+      Ok(false) => Err(Fault::Unallowed),
       _ => Err(Fault::Unallowed)
     }
   }
