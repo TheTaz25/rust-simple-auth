@@ -3,6 +3,7 @@ use diesel::{ExpressionMethods, SelectableHelper};
 use diesel::associations::HasTable;
 use diesel::dsl::count_star;
 use diesel::query_dsl::methods::{FilterDsl,SelectDsl};
+use diesel::update;
 use diesel_async::RunQueryDsl;
 use diesel_async::{pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection};
 use uuid::Uuid;
@@ -73,4 +74,20 @@ pub async fn q_get_user_by_id(connection: &mut Conn<'_>, _user_id: Uuid) -> Resu
     .first::<User>(connection)
     .await
     .or_else(|_| Err(Fault::NotFound(String::from("User"))))
+}
+
+pub async fn u_set_user_password(connection: &mut Conn<'_>, user: &User) -> Result<(), Fault> {
+  use crate::schema::users::dsl::*;
+
+  let result: usize = update(users.filter(user_id.eq(user.user_id)))
+    .set(password.eq(user.password.to_string()))
+    .execute(connection)
+    .await
+    .or_else(|_| Err(Fault::Diesel))?;
+
+  if result == 0 {
+    return Err(Fault::NotFound("user".to_owned()));
+  }
+
+  Ok(())
 }

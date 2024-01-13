@@ -1,6 +1,6 @@
 use diesel::prelude::*;
 use uuid::Uuid;
-use crate::{schema::users, utils::error::Fault};
+use crate::{schema::users, utils::error::Fault, api::auth::password::hash_password};
 
 #[derive(serde::Serialize, serde::Deserialize, Selectable, Queryable, Clone)]
 pub struct User {
@@ -34,6 +34,14 @@ impl User {
       Ok(false) => Err(Fault::Unallowed),
       _ => Err(Fault::Unallowed)
     }
+  }
+
+  pub fn set_password(&mut self, password: String) -> Result<(), Fault> {
+    let hashed = hash_password(password)
+      .or_else(|_| Err(Fault::Unexpected))?;
+
+    self.password = hashed;
+    Ok(())
   }
 }
 

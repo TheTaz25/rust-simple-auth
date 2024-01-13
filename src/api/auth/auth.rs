@@ -16,7 +16,7 @@ use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
 use crate::models::user::User;
 
-use super::queries::q_insert_user;
+use super::queries::{q_insert_user, u_set_user_password};
 
 #[derive(Serialize)]
 struct UserResponse {
@@ -142,6 +142,28 @@ async fn logout_user (
   Ok(StatusCode::OK)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
+struct UpdatePasswordByPasswordBody {
+  old_password: String,
+  new_password: String,
+}
+
+async fn reset_password_by_password (
+  State(state): State<AppState>,
+  Extension(mut user): Extension<User>,
+  Json(body): Json<UpdatePasswordByPasswordBody>
+) -> Result<StatusCode, Fault> {
+  let mut connection = state.pool.get_connection().await?.connection;
+
+  user.verify_password(body.old_password)?;
+  user.set_password(body.new_password)?;
+
+  u_set_user_password(&mut connection, &user).await?;
+
+  Ok(StatusCode::OK)
+}
+
 pub fn router(state: AppState) -> Router<AppState> {
   Router::new()
     .route("/auth/self", get(get_user_info).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
@@ -150,4 +172,5 @@ pub fn router(state: AppState) -> Router<AppState> {
     .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/refresh/:refresh_token", get(refresh_user_token))
     .route("/auth/logout", get(logout_user).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
+    .route("/auth/update-password-by-password", post(reset_password_by_password).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
 }
