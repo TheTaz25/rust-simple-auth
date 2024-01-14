@@ -2,6 +2,7 @@ use std::{io::Write, str::FromStr};
 
 use diesel::{prelude::*, FromSqlRow, AsExpression, serialize::{ToSql, IsNull}, pg::Pg, deserialize::FromSql};
 use serde::{Serialize, Deserialize};
+use uuid::Uuid;
 use crate::schema::{otp, sql_types::OtpType};
 
 #[derive(Debug, PartialEq, FromSqlRow, AsExpression, Eq, Clone, Serialize, Deserialize)]
@@ -67,7 +68,7 @@ pub struct OtpInternal {
   pub id: i32,
   pub code: String,
   pub code_type: OtpEnum,
-  pub usages_left: Option<i16>
+  pub user: Option<Uuid>,
 }
 
 impl From<OtpExternal> for OtpInternal {
@@ -76,7 +77,7 @@ impl From<OtpExternal> for OtpInternal {
         id: value.id,
         code: value.code,
         code_type: OtpEnum::from_str(value.code_type.as_str()).ok().unwrap(),
-        usages_left: value.usages_left,
+        user: value.user,
       }
   }
 }
@@ -87,7 +88,7 @@ pub struct OtpExternal {
   pub id: i32,
   pub code: String,
   pub code_type: String,
-  pub usages_left: Option<i16>
+  pub user: Option<Uuid>,
 }
 
 impl From<OtpInternal> for OtpExternal {
@@ -96,16 +97,23 @@ impl From<OtpInternal> for OtpExternal {
         code: value.code,
         code_type: value.code_type.to_string(),
         id: value.id,
-        usages_left: value.usages_left,
+        user: value.user,
       }
   }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewOtp {
+  pub code: String,
+  pub user: Option<Uuid>,
 }
 
 #[derive(Insertable, Deserialize)]
 #[diesel(table_name = otp)]
 #[serde(rename_all = "camelCase")]
-pub struct NewOtp {
+pub struct InsertableOtp {
   pub code: String,
-  pub code_type: OtpEnum,
-  pub usages_left: Option<i16>,
+  pub user: Option<Uuid>,
+  pub code_type: OtpEnum
 }
