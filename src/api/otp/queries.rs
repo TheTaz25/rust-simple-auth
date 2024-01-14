@@ -1,21 +1,27 @@
 use bb8::PooledConnection;
-use diesel::{delete, ExpressionMethods, update};
+use diesel::{delete, ExpressionMethods};
 use diesel::query_dsl::methods::FilterDsl;
 use diesel_async::{pooled_connection::AsyncDieselConnectionManager, AsyncPgConnection};
 use diesel_async::RunQueryDsl;
 use diesel::result::Error::DatabaseError;
 use diesel::associations::HasTable;
 
-use crate::models::otp::{OtpInternal, OtpEnum};
+use crate::models::otp::{OtpInternal, OtpEnum, InsertableOtp};
 use crate::{models::otp::NewOtp, utils::error::Fault};
 
 type Conn<'a> = PooledConnection<'a, AsyncDieselConnectionManager<AsyncPgConnection>>;
 
-pub async fn i_otp(connection: &mut Conn<'_>, new_otp: NewOtp) -> Result<(), Fault> {
+pub async fn i_otp(connection: &mut Conn<'_>, new_otp: NewOtp, code_type: OtpEnum) -> Result<(), Fault> {
   use crate::schema::otp;
 
+  let to_insert = InsertableOtp {
+    code: new_otp.code,
+    user: new_otp.user,
+    code_type,
+  };
+
   diesel::insert_into(otp::table)
-    .values(new_otp)
+    .values(to_insert)
     .execute(connection)
     .await
     .or_else(|diesel_error| {
@@ -52,25 +58,53 @@ pub async fn d_otp(connection: &mut Conn<'_>, otp_id: i32) -> Result<(), Fault> 
   Ok(())
 }
 
+async fn d_code(connection: &mut Conn<'_>, otp_code: &String) {
+  use crate::schema::otp::dsl::*;
+
+  let _ = delete(otp.filter(code.eq(otp_code)))
+  .execute(connection)
+  .await;
+}
+
 pub async fn q_check_registration_code(connection: &mut Conn<'_>, otp_code: &String) -> Result<(), Fault> {
   use crate::schema::otp::dsl::*;
 
   let found_code = otp
     .filter(code.eq(otp_code))
     .first::<OtpInternal>(connection)
-    .await
-    .or_else(|_| Err(Fault::Diesel))?;
+    .await;
 
-  if found_code.code_type == OtpEnum::REGISTER && found_code.usages_left.unwrap() > 0 {
-    let usages = found_code.usages_left.unwrap_or(1);
-    update(otp.filter(code.eq(otp_code)))
-      .set(usages_left.eq(Some(usages - 1)))
-      .execute(connection)
-      .await
-      .or_else(|_| Err(Fault::Diesel))?;
+  match found_code {
+    Ok(c) => {
+      if c.code_type != OtpEnum::REGISTER {
+        return Err(Fault::RegistrationCodeInvalid);
+      }
 
-    return Ok(());
+      d_code(connection, otp_code).await;
+
+      return Ok(());
+    }
+    _ => return Err(Fault::RegistrationCodeInvalid)
   }
+}
 
-  Err(Fault::RegistrationCodeInvalid)
+pub async fn q_check_password_code(connection: &mut Conn<'_>, otp_code: &String) -> Result<OtpInternal, Fault> {
+  use crate::schema::otp::dsl::*;
+
+  let found_code = otp
+    .filter(code.eq(otp_code))
+    .first::<OtpInternal>(connection).await;
+
+  match found_code {
+    Ok(c) => {
+      if c.code_type != OtpEnum::PWRESET {
+        return Err(Fault::PasswordCodeInvalid);
+      }
+
+      let _ = d_code(connection, otp_code).await;
+
+      return Ok(c);
+    }
+    _ => return Err(Fault::PasswordCodeInvalid)
+  }
 }

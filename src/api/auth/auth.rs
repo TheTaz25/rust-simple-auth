@@ -11,12 +11,12 @@ use axum::{
 use serde::{Serialize,Deserialize};
 use uuid::Uuid;
 
-use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::{auth::queries::{q_does_user_exist, q_get_user_by_name}, otp::queries::q_check_registration_code}, utils::{error::Fault, parser::get_authorization_as_uuid}};
+use crate::{state::AppState, middleware::authorized::logged_in_guard, models::user::{NewUser, UserInfo}, api::{auth::queries::{q_does_user_exist, q_get_user_by_name}, otp::queries::{q_check_registration_code, q_check_password_code}}, utils::{error::Fault, parser::get_authorization_as_uuid}};
 use crate::api::auth::session::TokenPair;
 use crate::api::auth::password::hash_password;
 use crate::models::user::User;
 
-use super::queries::{q_insert_user, u_set_user_password};
+use super::queries::{q_insert_user, u_set_user_password, q_get_user_by_id};
 
 #[derive(Serialize)]
 struct UserResponse {
@@ -164,6 +164,31 @@ async fn reset_password_by_password (
   Ok(StatusCode::OK)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
+struct UpdatePasswordByOtp {
+  otp_code: String,
+  new_password: String,
+}
+
+async fn reset_password_by_otp (
+  State(state): State<AppState>,
+  Json(body): Json<UpdatePasswordByOtp>
+) -> Result<StatusCode, Fault> {
+  let mut connection = state.pool.get_connection().await?.connection;
+
+  // get InternalOtp by otp_code
+  let otp = q_check_password_code(&mut connection, &body.otp_code).await?;
+  // get the associated user by this otp
+  let mut user = q_get_user_by_id(&mut connection, otp.user.unwrap()).await?;
+  // set new password on user struct
+  let _ = user.set_password(body.new_password)?;
+  // update password in database
+  u_set_user_password(&mut connection, &user).await?;
+
+  Ok(StatusCode::OK)
+}
+
 pub fn router(state: AppState) -> Router<AppState> {
   Router::new()
     .route("/auth/self", get(get_user_info).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
@@ -173,4 +198,5 @@ pub fn router(state: AppState) -> Router<AppState> {
     .route("/auth/refresh/:refresh_token", get(refresh_user_token))
     .route("/auth/logout", get(logout_user).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/update-password-by-password", post(reset_password_by_password).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
+    .route("/auth/update-password-by-otp", post(reset_password_by_otp))
 }

@@ -15,6 +15,8 @@ pub enum Fault {
   NotImplementedYet,
   UserBlocked,
   RegistrationCodeInvalid,
+  PasswordCodeInvalid,
+  MissingUserIdOtp,
 }
 
 impl IntoResponse for Fault {
@@ -31,7 +33,9 @@ impl IntoResponse for Fault {
         Fault::MalformedAuthorization => (StatusCode::BAD_REQUEST, "Authorization header must be in form of `'TOKEN {{auth_token}}'`".to_string()),
         Fault::NotImplementedYet => (StatusCode::NOT_IMPLEMENTED, "Functionality is a To-Do".to_string()),
         Fault::UserBlocked => (StatusCode::UNAUTHORIZED, "Your account has been blocked by an admin. Please reach out to an admin to regain access to this app!".to_string()),
-        Fault::RegistrationCodeInvalid => (StatusCode::BAD_REQUEST, "The entered registration code has no usages left or does not exist".to_string())
+        Fault::RegistrationCodeInvalid => (StatusCode::BAD_REQUEST, "The entered registration code does not exist".to_string()),
+        Fault::PasswordCodeInvalid => (StatusCode::BAD_REQUEST, "The entered password code does not exist".to_string()),
+        Fault::MissingUserIdOtp => (StatusCode::BAD_REQUEST, "To create a password reset code, please specify a user that is bound to the code".to_string())
       };
 
       let body = Json(json!({

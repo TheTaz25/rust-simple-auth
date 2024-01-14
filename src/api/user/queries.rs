@@ -29,8 +29,6 @@ pub async fn u_block_user (connection: &mut Conn<'_>, user: Uuid) -> Result<(), 
     .await
     .or_else(|_| Err(Fault::Diesel))?;
 
-  println!("{} updated rows", result);
-
   if result == 0 {
     return Err(Fault::NotFound("user".to_owned()));
   }
