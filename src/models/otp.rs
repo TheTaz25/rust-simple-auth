@@ -1,6 +1,6 @@
 use std::{io::Write, str::FromStr};
 
-use diesel::{prelude::*, FromSqlRow, AsExpression, serialize::{ToSql, IsNull}, pg::Pg, deserialize::FromSql};
+use diesel::{backend::Backend, deserialize::FromSql, pg::Pg, prelude::*, serialize::{IsNull, ToSql}, AsExpression, FromSqlRow};
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use crate::schema::{otp, sql_types::OtpType};
@@ -23,7 +23,7 @@ impl ToSql<OtpType, Pg> for OtpEnum {
 }
 
 impl FromSql<OtpType, Pg> for OtpEnum {
-  fn from_sql(bytes: diesel::backend::RawValue<'_, Pg>) -> diesel::deserialize::Result<Self> {
+  fn from_sql(bytes: <Pg as Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
     match bytes.as_bytes() {
       b"PW_RESET" => Ok(OtpEnum::PWRESET),
       b"REGISTER" => Ok(OtpEnum::REGISTER),

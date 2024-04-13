@@ -14,9 +14,9 @@ bcrypt = "0.15.1"
 uuid = { version = "1.3.2", features = ["v4", "serde", "fast-rng"]}
 chrono = { version = "0.4.24", features = ["serde"] }
 bb8 = "0.8.0"
-diesel = { version = "2.0.4", features = ["uuid"] }
-diesel-async = { version = "0.2.2", features = ["bb8", "postgres"]}
-redis = { version = "0.23.0", features = ["aio", "connection-manager", "tokio-comp"] }
+diesel = { version = "2.1.5", features = ["uuid"] }
+diesel-async = { version = "0.4.1", features = ["bb8", "postgres"]}
+redis = { version = "0.25.3", features = ["aio", "connection-manager", "tokio-comp"] }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 tower-http = { version = "0.5.2", features = ["trace", "cors"] }
 serde_json = "1.0.100"
