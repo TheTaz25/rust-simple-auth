@@ -1,0 +1,18 @@
+meta {
+  name: Update Bassword by OTP
+  type: http
+  seq: 8
+}
+
+post {
+  url: http://localhost:8080/auth/update-password-by-otp
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "otpCode": "",
+    "newPassword": ""
+  }
+}
