@@ -31,7 +31,6 @@ struct NewUserBody {
   registration_code: String,
 }
 
-// TODO: Extend for registration-code
 async fn add_user(
   State(state): State<AppState>,
   Json(new_user): Json<NewUserBody>,
@@ -102,13 +101,6 @@ async fn login_user(
 #[derive(Serialize)]
 struct AllTokensResponse {
   tokens: Vec<TokenPair>
-}
-
-async fn test_user_authorized(
-  Extension(user): Extension<User>,
-) -> Result<StatusCode, Fault> {
-  println!("{}", user.user_id.to_string());
-  Ok(StatusCode::OK)
 }
 
 async fn refresh_user_token(
@@ -194,7 +186,6 @@ pub fn router(state: AppState) -> Router<AppState> {
     .route("/auth/self", get(get_user_info).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/register", post(add_user))
     .route("/auth/login", post(login_user))
-    .route("/auth/test", get(test_user_authorized).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/refresh/:refresh_token", get(refresh_user_token))
     .route("/auth/logout", get(logout_user).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/update-password-by-password", post(reset_password_by_password).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))

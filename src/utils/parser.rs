@@ -8,7 +8,7 @@ pub fn get_authorization_as_uuid(headers: &HeaderMap) -> Result<String, Fault> {
 
   if let Some(st) = auth_string {
     let x = st.to_str().or_else(|_| Err(Fault::UuidConversion))?;
-    println!("{x}");
+
     let y = x.split(' ').nth(1);
     if let Some(token) = y {
       return Ok(token.to_string());
