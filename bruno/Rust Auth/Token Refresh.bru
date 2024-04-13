@@ -1,0 +1,11 @@
+meta {
+  name: Token Refresh
+  type: http
+  seq: 6
+}
+
+get {
+  url: http://localhost:8080/auth/refresh/:refreshToken
+  body: none
+  auth: none
+}

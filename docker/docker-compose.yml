@@ -1,0 +1,30 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: pnp
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: asdf1234
+    volumes:
+      - ./db/store:/var/lib/postgresql/data
+    networks:
+      - pnp
+
+  red:
+    image: redis:alpine
+    restart: always
+    command: redis-server --save 600 1 --loglevel warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis:/data
+    networks:
+      - pnp
+
+networks:
+  pnp:

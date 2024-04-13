@@ -1,115 +1,62 @@
-use axum::{
-    Router,
-    extract::State,
-    extract::Path,
-    extract::Json,
-    routing::get,
-    http::StatusCode,
-};
-use serde::{Serialize};
-use std::{sync::{Mutex, Arc}};
+use std::sync::Arc;
+use back_end_paper_2::api::system_setup::init_admin_user::setup;
+use back_end_paper_2::state::postgres_wrapper::WrappedPostgres;
 use dotenv::dotenv;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tower_http::trace::TraceLayer;
+use tower_http::cors::CorsLayer;
 
-#[derive(Clone)]
-struct AppState {
-    current_count: Arc<Mutex<i32>>,
-    user_list: Arc<Mutex<Vec<User>>>,
-}
+use back_end_paper_2::api::auth::auth::router as auth_router;
+use back_end_paper_2::api::user::user::router as user_router;
+use back_end_paper_2::api::otp::otp::router as otp_router;
 
-#[derive(Clone, Serialize)]
-struct User {
-    username: String,
-    password: Option<String>,
-}
-
-#[derive(Serialize)]
-struct UserListResponse {
-    users: Vec<User>
-}
-
-impl User {
-    // fn new_existing(username: String, password: String) -> Self {
-    //     User {
-    //         username,
-    //         password: Some(password),
-    //     }
-    // }
-
-    fn new(username: String) -> Self {
-        User {
-            username,
-            password: None
-        }
-    }
-
-    fn set_password(&mut self, password: String) {
-        let hash_result = bcrypt::hash(password, 10);
-        match hash_result.ok().as_ref() {
-            Some(result) => self.password = Some(result.clone()),
-            None => panic!("Couldn't hash password!")
-        }
-    }
-}
-
-async fn get_state  (
-    State(state): State<AppState>,
-) -> (StatusCode, String) {
-    let count = state.current_count.lock().unwrap();
-    (StatusCode::OK, count.to_string())
-}
-
-async fn add_to_state (
-    State(state): State<AppState>,
-    Path(value): Path<i32>,
-) -> (StatusCode, String) {
-    let mut count = state.current_count.lock().unwrap();
-    *count += value;
-    (StatusCode::OK, ("Added ".to_string() + &value.to_string() + &" to count!".to_string()))
-}
-
-fn get_default_admin_user () -> Vec<User> {
-    let first_admin_user = std::env::var("ADMIN_USER").expect("ADMIN_USER needs to be set!");
-    let first_admin_pass = std::env::var("ADMIN_PASSWORD").expect("ADMIN_PASSWORD needs to be set!");
-    let mut new_user = User::new(first_admin_user);
-    new_user.set_password(first_admin_pass);
-    vec![new_user]
-}
-
-// async fn add_user (
-//     State(state): State<AppState>,
-//     Json(body): Json<User>,
-// ) -> StatusCode {
-//     StatusCode::CREATED
-// }
-
-async fn get_all_users (
-    State(state): State<AppState>
-) -> (StatusCode, Json<UserListResponse>) {
-    let users = state.user_list.lock().unwrap();
-    let response = UserListResponse {
-        users: users.to_vec()
-    };
-    (StatusCode::OK, Json(response))
-}
+use back_end_paper_2::state::AppState;
+use back_end_paper_2::state::redis_wrapper::WrappedRedis;
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
 
+    // BEGIN TRACING SETUP
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| "tower_http=debug".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+    // END TRACING SETUP
+
+    // BEGIN Database Setup
+    let pg_client = WrappedPostgres::new().await;
+    
+    let adm_setup_result = setup(&pg_client.postgres).await;
+
+    match adm_setup_result {
+        Ok(_) => println!("Fresh start. Initialized the provided adm-default user"),
+        Err(_) => println!("An admin user did already exist, skipped setup of adm user")
+    }
+    // END Database Setup
+    // BEGIN REDIS SETUP
+    let redis_client = WrappedRedis::new();
+    // END REDIS SETUP
+
+
     let state = AppState {
-        current_count: Arc::new(Mutex::new(0)),
-        user_list: Arc::new(Mutex::new(get_default_admin_user()))
+        pool: Arc::new(pg_client),
+        redis: Arc::new(redis_client),
     };
 
-    let app = Router::new()
-        .route("/", get(get_state))
-        .route("/add/:value", get(add_to_state))
-        .route("/users", get(get_all_users))
-        .with_state(state);
+    let routes = auth_router(state.clone())
+        .merge(user_router(state.clone()))
+        .merge(otp_router(state.clone()))
+        .with_state(state)
+        .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http());
 
     // run it with hyper on localhost:3000
     axum::Server::bind(&"127.0.0.1:8080".parse().unwrap())
-        .serve(app.into_make_service())
+        .serve(routes.into_make_service())
         .await
         .unwrap();
 }

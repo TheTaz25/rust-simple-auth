@@ -1,0 +1,17 @@
+meta {
+  name: New Register OTP
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/otp/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "code": "999999"
+  }
+}
