@@ -1,11 +1,11 @@
-use axum::{http::Request, response::Response, middleware::Next, extract::State};
+use axum::{body::Body, extract::State, http::Request, middleware::Next, response::Response};
 
 use crate::{utils::{parser::get_authorization_as_uuid, error::Fault}, state::AppState, api::auth::queries::q_get_user_by_id};
 
-pub async fn logged_in_guard<B>(
+pub async fn logged_in_guard(
   State(state): State<AppState>,
-  mut req: Request<B>,
-  next: Next<B>,
+  mut req: Request<Body>,
+  next: Next,
 ) -> Result<Response, Fault> {
   let auth_token = get_authorization_as_uuid(&req.headers());
   if let Ok(auth_token) = auth_token {
@@ -26,10 +26,10 @@ pub async fn logged_in_guard<B>(
   }
 }
 
-pub async fn admin_guard<B>(
+pub async fn admin_guard(
   State(state): State<AppState>,
-  mut req: Request<B>,
-  next: Next<B>,
+  mut req: Request<Body>,
+  next: Next,
 ) -> Result<Response, Fault> {
   let auth_token = get_authorization_as_uuid(&req.headers());
   if let Ok(auth_token) = auth_token {

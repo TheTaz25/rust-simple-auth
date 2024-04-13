@@ -1,17 +1,17 @@
 use std::sync::Arc;
-use back_end_paper_2::api::system_setup::init_admin_user::setup;
-use back_end_paper_2::state::postgres_wrapper::WrappedPostgres;
+use rust_auth::api::system_setup::init_admin_user::setup;
+use rust_auth::state::postgres_wrapper::WrappedPostgres;
 use dotenv::dotenv;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tower_http::trace::TraceLayer;
 use tower_http::cors::CorsLayer;
 
-use back_end_paper_2::api::auth::auth::router as auth_router;
-use back_end_paper_2::api::user::user::router as user_router;
-use back_end_paper_2::api::otp::otp::router as otp_router;
+use rust_auth::api::auth::auth::router as auth_router;
+use rust_auth::api::user::user::router as user_router;
+use rust_auth::api::otp::otp::router as otp_router;
 
-use back_end_paper_2::state::AppState;
-use back_end_paper_2::state::redis_wrapper::WrappedRedis;
+use rust_auth::state::AppState;
+use rust_auth::state::redis_wrapper::WrappedRedis;
 
 #[tokio::main]
 async fn main() {
@@ -54,9 +54,10 @@ async fn main() {
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
-    // run it with hyper on localhost:3000
-    axum::Server::bind(&"127.0.0.1:8080".parse().unwrap())
-        .serve(routes.into_make_service())
+    // run it with hyper on localhost:8080
+    let listener = tokio::net::TcpListener::bind(&"0.0.0.0:8080").await.unwrap();
+
+        axum::serve(listener, routes.into_make_service())
         .await
         .unwrap();
 }
