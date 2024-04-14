@@ -25,6 +25,23 @@ services:
       - ./redis:/data
     networks:
       - pnp
+  
+  auth:
+    image: rust-auth-pre:latest
+    restart: always
+    ports: 
+      - "8080:8080"
+    environment:
+      - DB_USER=test
+      - DB_PASS=asdf1234
+      - DB_HOST=db
+      - DB_NAME=pnp
+      - ADMIN_USER=admin
+      - ADMIN_PASSWORD=password
+      - RUST_LOG=debug
+      - REDIS_HOST=red
+    networks:
+      - pnp
 
 networks:
   pnp:
