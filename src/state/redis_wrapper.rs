@@ -12,7 +12,9 @@ pub struct WrappedRedis {
 
 impl WrappedRedis {
   pub fn new() -> Self {
-    let client = redis::Client::open("redis://127.0.0.1").unwrap();
+    let env_redis = std::env::var("REDIS_HOST").expect("env var 'REDIS_HOST' should contain name of redis host system");
+    let redis_url = format!("redis://{}", env_redis);
+    let client = redis::Client::open(redis_url).unwrap();
     WrappedRedis {
       redis: client
     }
