@@ -38,7 +38,7 @@ impl WrappedRedis {
         format!("{}:{}", pair.get_id_string(), pair.get_access_token_string()),
         pair.refresh_token.duration,
       ))
-      .query_async(&mut con).await.or_else(|_| {
+      .query_async::<()>(&mut con).await.or_else(|_| {
         Err(Fault::DatabaseConnection)
       })?;
 
@@ -68,7 +68,7 @@ impl WrappedRedis {
   pub async fn clear_token(&self, token: &String) -> Result<(), Fault> {
     let mut con = self.get_connection().await?;
     
-    con.del(format!("ACCESS:{}", token)).await.or_else(|_| Err(Fault::Unexpected))?;
+    con.del::<_, ()>(format!("ACCESS:{}", token)).await.or_else(|_| Err(Fault::Unexpected))?;
 
     Ok(())
   }
@@ -90,7 +90,7 @@ impl WrappedRedis {
 
     let refresh_token: String = result.split(":").into_iter().last().unwrap().to_string();
 
-    con.del(format!("REFRESH:{}", refresh_token)).await.or_else(|_| Err(Fault::Unexpected))?;
+    con.del::<_, ()>(format!("REFRESH:{}", refresh_token)).await.or_else(|_| Err(Fault::Unexpected))?;
 
     Ok(())
   }

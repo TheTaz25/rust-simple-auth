@@ -98,11 +98,6 @@ async fn login_user(
   Ok((StatusCode::OK, Json(LoginResponse { tokens: token_pair })))
 }
 
-#[derive(Serialize)]
-struct AllTokensResponse {
-  tokens: Vec<TokenPair>
-}
-
 async fn refresh_user_token(
   State(state): State<AppState>,
   Path(refresh_token): Path<Uuid>,
@@ -186,7 +181,7 @@ pub fn router(state: AppState) -> Router<AppState> {
     .route("/auth/self", get(get_user_info).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/register", post(add_user))
     .route("/auth/login", post(login_user))
-    .route("/auth/refresh/:refresh_token", get(refresh_user_token))
+    .route("/auth/refresh/{refresh_token}", get(refresh_user_token))
     .route("/auth/logout", get(logout_user).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/update-password-by-password", post(reset_password_by_password).layer(middleware::from_fn_with_state(state.clone(), logged_in_guard)))
     .route("/auth/update-password-by-otp", post(reset_password_by_otp))

@@ -65,7 +65,7 @@ pub fn router(state: AppState) -> Router<AppState> {
     .route("/otp/password",
     post(create_password_otp)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard)))
-    .route("/otp/:id",
+    .route("/otp/{id}",
       delete(delete_otp)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )

@@ -80,19 +80,19 @@ pub fn router(state: AppState) -> Router<AppState> {
       get(get_all_users)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )
-    .route("/users/:user_id/admin/:is_admin",
+    .route("/users/{user_id}/admin/{is_admin}",
       get(update_admin)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )
-    .route("/users/:user_id/lock",
+    .route("/users/{user_id}/lock",
       get(lock_user)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )
-    .route("/users/:user_id/unlock",
+    .route("/users/{user_id}/unlock",
       get(unlock_user)
       .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )
-    .route("/users/:user_id",
+    .route("/users/{user_id}",
       delete(delete_user)
         .layer(middleware::from_fn_with_state(state.clone(), admin_guard))
     )
